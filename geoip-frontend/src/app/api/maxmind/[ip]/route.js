@@ -11,13 +11,14 @@ export async function GET(req, { params }) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch data from MaxMind API');
+      const errorText = await response.text();
+      throw new Error(`MaxMind API error: ${errorText}`);
     }
 
     const data = await response.json();
     return new Response(JSON.stringify(data), { status: 200 });
   } catch (err) {
     console.error('Error fetching from MaxMind:', err);
-    return new Response(JSON.stringify({ message: 'Failed to fetch data from MaxMind API' }), { status: 500 });
+    return new Response(JSON.stringify({ message: `Failed to fetch data from MaxMind API: ${err.message}` }), { status: 500 });
   }
 }

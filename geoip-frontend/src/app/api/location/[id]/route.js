@@ -2,36 +2,25 @@ import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  connectionString: process.env.POSTGRES_URI,
 });
 
-export async function GET(request, { params }) {
+export async function GET(req, { params }) {
   const { id } = params;
-  const { searchParams } = new URL(request.url);
-  const lang = searchParams.get('lang');
-
-  if (!id) {
-    return NextResponse.json({ message: 'ID is required.' }, { status: 400 });
-  }
+  const { lang } = req.query;
 
   try {
     const client = await pool.connect();
-    const query = "SELECT * FROM geoip_location WHERE geoname_id = $1 AND locale_code = $2";
-    console.log('Query:', query, id, lang);
-    const result = await client.query(query, [id, lang]);
+    const result = await client.query('SELECT * FROM locations WHERE geoname_id = $1 AND lang = $2', [id, lang]);
     client.release();
 
-    if (result.rows.length > 0) {
-      return NextResponse.json(result.rows);
-    } else {
-      return NextResponse.json({ message: 'No data found for this GeoID.' }, { status: 404 });
+    if (result.rows.length === 0) {
+      return new Response(JSON.stringify({ message: 'No city data found for this geoname ID' }), { status: 404 });
     }
+
+    return new Response(JSON.stringify(result.rows), { status: 200 });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: 'Failed to fetch data.' }, { status: 500 });
+    console.error('Error fetching from database:', err);
+    return new Response(JSON.stringify({ message: `Failed to fetch data from database: ${err.message}` }), { status: 500 });
   }
 }
