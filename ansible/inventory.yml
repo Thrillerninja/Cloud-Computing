@@ -1,0 +1,19 @@
+# inventory.yml
+all:
+  children:
+    database:
+      hosts:
+        postgres-server:
+          ansible_connection: docker
+          ansible_python_interpreter: /usr/bin/python3
+    pgadmin:
+      hosts:
+        pgadmin-server:
+          ansible_connection: docker
+          ansible_python_interpreter: /usr/bin/python3
+
+    frontend:
+      hosts:
+        nextjs-server:
+          ansible_connection: docker
+          ansible_python_interpreter: /usr/bin/python3

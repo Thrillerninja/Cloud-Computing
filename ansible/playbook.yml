@@ -1,0 +1,83 @@
+---
+- name: Configure PostgreSQL
+  hosts: database
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+    - name: Install Python and PostgreSQL dependencies
+      raw: |
+        until apt-get update && apt-get install -y python3-pip python3-psycopg2; do
+          echo "Waiting for apt lock to be released..."
+          sleep 5
+        done
+      args:
+        executable: /bin/bash
+      
+    - name: Gather facts (now that Python is available)
+      setup:
+      
+    - name: Ensure PostgreSQL is ready
+      wait_for:
+        port: 5432
+        delay: 5
+        timeout: 30
+      
+    - name: Copy initial SQL script
+      copy:
+        src: ../init.sql
+        dest: /docker-entrypoint-initdb.d/init.sql
+      
+    - name: Run initial SQL script
+      shell: |
+        psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init.sql
+      args:
+        executable: /bin/bash
+
+# - name: Configure pgAdmin
+#   hosts: pgadmin
+#   tasks:
+#     - name: Ensure pgAdmin is ready
+#       wait_for:
+#         port: 8080
+#         delay: 5
+#         timeout: 30
+
+- name: Configure Next.js App
+  hosts: frontend
+  tasks:
+    - name: Install dependencies
+      shell: |
+        cd /app
+        if [ ! -d "node_modules" ]; then
+          npm install
+        fi
+      args:
+        executable: /bin/bash
+    
+    # - name: Build Next.js app
+    #   shell: |
+    #     cd /app
+    #     npm run build
+    #   args:
+    #     executable: /bin/bash
+    
+    - name: Kill process using port 3000 if exists
+      shell: |
+        if lsof -i:3000; then
+          kill -9 $(lsof -t -i:3000)
+        fi
+      args:
+        executable: /bin/bash
+    
+    - name: Start Next.js app
+      shell: |
+        cd /app
+        nohup npm run dev > /app/nextjs.log 2>&1 &
+      args:
+        executable: /bin/bash
+      environment:
+        DB_USER: geoip
+        DB_HOST: 172.22.0.2
+        DB_NAME: geoipdb
+        DB_PASSWORD: password
+        DB_PORT: "5432"

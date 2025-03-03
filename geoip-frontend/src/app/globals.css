@@ -1,0 +1,68 @@
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+[data-theme="dark"] {
+  --font-header: 'Georgia', serif;
+  --font-body: 'Arial', sans-serif;
+  --color-background: hsl(198, 71%, 5%);
+  --color-primary: hsl(180, 41%, 12%);
+  --color-secondary: #5C8374;
+  --color-accent: #9EC8B9;
+  --color-text: #dbe9e4;
+}
+
+[data-theme="light"] {
+  --font-header: 'Georgia', serif;
+  --font-body: 'Arial', sans-serif;
+  --color-background: hsl(198, 71%, 95%);
+  --color-primary: hsl(198, 30%, 82%);
+  --color-secondary: hsl(197, 71%, 70%);
+  --color-accent: hsl(197, 33%, 34%);
+  --color-text: #171717;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-header);
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--color-accent);
+  background: var(--background);
+  font-family: "Segoe UI" ,Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.header {
+  background-color: var(--color-primary);
+}
+
+.button {
+  background-color: var(--color-secondary);
+  color: var(--color-background);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-theme="dark"] {
+  html {
+    color-scheme: dark;
+  }
+}

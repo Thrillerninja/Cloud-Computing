@@ -1,0 +1,26 @@
+# Ignore DB files
+/postgres-data
+
+# Ignore Terraform state files
+.terraform
+*.tfstate
+*.tfstate.backup
+*.tfstate.backup.*
+.terraform.lock.hcl
+
+# Ignore Node.js dependencies
+/geoip-frontend/node_modules
+/geoip-frontend/.next
+/geoip-frontend/out
+
+# Ignore environment files
+/geoip-frontend/.env
+
+# Ignore log files
+/geoip-frontend/nextjs.log
+
+# Ignore Ansible temporary files
+/ansible/.ansible
+
+# Ignore Python virtual environment
+/ansible-venv/Lib
