@@ -21,15 +21,34 @@
         port: 5432
         delay: 5
         timeout: 30
-      
-    - name: Copy initial SQL script
+
+    - name: Copy initial SQL scripts
       copy:
-        src: ../init.sql
-        dest: /docker-entrypoint-initdb.d/init.sql
-      
+        src: ../init_ip_mapping.sql
+        dest: /docker-entrypoint-initdb.d/init_ip_mapping.sql
+
+    - name: Copy location configuration script
+      copy:
+        src: ../init_locations.sql
+        dest: /docker-entrypoint-initdb.d/init_locations.sql
+
+    - name: Copy network configuration script
+      copy:
+        src: ../init_networks.sql
+        dest: /docker-entrypoint-initdb.d/init_networks.sql 
+ 
     - name: Run initial SQL script
-      shell: |
-        psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init.sql
+      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_ip_mapping.sql
+      args:
+        executable: /bin/bash
+
+    - name: Run location configuration script
+      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_locations.sql
+      args:
+        executable: /bin/bash
+
+    - name: Run network configuration script
+      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_networks.sql
       args:
         executable: /bin/bash
 

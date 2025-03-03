@@ -16,6 +16,14 @@ export default function Home() {
   const [language, setLanguage] = useState("en");
   const [theme, setTheme] = useState('light');
 
+  // Log the connection string and other DB config for debugging purposes
+  console.log('DB User:', process.env.DB_USER);
+  console.log('DB Host:', process.env.DB_HOST);
+  console.log('DB Name:', process.env.DB_NAME);
+  console.log('DB Password:', process.env.DB_PASSWORD);
+  console.log('DB Port:', process.env.DB_PORT);
+
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme);
@@ -42,7 +50,7 @@ export default function Home() {
       setIp(ipAddress);
 
       // Search for the location of the IP address
-      handleSearch(ipAddress);
+      handleSearch();
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -61,32 +69,54 @@ export default function Home() {
     setError("");
     let data = null;
     try {
-      // Fetch the network data
+      // Fetch the network data from Database
       const encodedIp = encodeURIComponent(ip);
       console.log('Encoded IP:', encodedIp);
-      const response = await fetch(`/api/network/${encodedIp}`);
+      const databaseResponse = await fetch(`/api/network/${encodedIp}`);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        const errorData = JSON.parse(errorText);
+      if (!databaseResponse.ok) {
+        if (databaseResponse.status === 404) {
+          console.log('No data found in the database, fetching from MaxMind API');
 
-        const errorMessage = errorData.message || response.statusText;
-        throw new Error(errorMessage);
+          // Try getting the IP data from MaxMind API
+          const maxMindResponse = await fetch(`/api/maxmind/${encodedIp}`);
+          if (maxMindResponse.ok) {
+            // Log MaxMind info
+            const maxMindData = await maxMindResponse.json();
+            console.log('MaxMind data fetched:', maxMindData);
+            console.log('Adding data to the database');
+            // Add the data to the database
+            await addToDatabase(maxMindData);
+
+            // Query the database again to get the newly added data
+            console.log('Fetching newly added data from the database');
+            const newDatabaseResponse = await fetch(`/api/network/${encodedIp}`);
+            if (!newDatabaseResponse.ok) {
+              throw new Error('Failed to fetch newly added data from the database.');
+            }
+            data = await newDatabaseResponse.json();
+          } else {
+            if (maxMindResponse.status === 404) {
+              throw new Error('No data found for this IP address in Maxmind API.');
+            } else {
+              throw new Error('Failed to fetch data from MaxMind API.');
+            }
+          }
+        } else {
+          const errorText = await databaseResponse.text();
+          const errorData = JSON.parse(errorText);
+          throw new Error('Failed to fetch data from the database.' + errorData.message || databaseResponse.statusText);
+        }
+      } else {
+        data = await databaseResponse.json();
       }
-      data = await response.json();
+      
       console.log('Data fetched:', data);
+
       if (data.length > 0) {
         setLocation(data[0]);
       } else {
-        // If no data found in the database, fetch from MaxMind API
-        const maxMindData = await fetchFromMaxMind(ip);
-        if (maxMindData) {
-          setLocation(maxMindData);
-          // Add the fetched data to the database
-          await addToDatabase(maxMindData);
-        } else {
-          setError("No data found for this IP address.");
-        }
+        setError("No data found for this IP address.");
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -94,6 +124,10 @@ export default function Home() {
     }
 
     if (data && data.geoname_id !== null) {
+      // Fetch secondary location data
+
+      //First set geoid to location
+      setLocation(prevLocation => ({ ...prevLocation, ...data[0] }));
       secondary_location_search();
     }
   };
@@ -145,7 +179,7 @@ export default function Home() {
       console.error(err);
       setError("Found network, failed to fetch location data.");
     }
-    console.log(location);
+    console.log("Location Request" + location);
   }
 
   const validateIp = (value) => {
@@ -239,8 +273,8 @@ export default function Home() {
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h5">Location Information</Typography>
                 <Typography>IP Address: {location.network}</Typography>
-                <Typography>City: {location.city}</Typography>
-                <Typography>Region: {location.region_name}</Typography>
+                <Typography>City: {location.city_name}</Typography>
+                <Typography>Region: {location.subdivision_1_name}</Typography>
                 <Typography>Country: {location.country_name}</Typography>
                 <Typography>Latitude: {location.latitude}</Typography>
                 <Typography>Longitude: {location.longitude}</Typography>

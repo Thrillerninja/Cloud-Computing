@@ -1,29 +1,72 @@
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_URI,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: String(process.env.DB_PASSWORD), // Ensure password is a string
+  port: Number(process.env.DB_PORT), // Ensure port is a number
 });
 
 export async function POST(req) {
   try {
     const client = await pool.connect();
     const data = await req.json();
-    const query = `
-      INSERT INTO locations (ip, network, city, region_name, country_name, latitude, longitude, geoname_id, lang)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+
+    // Add IP mapping to geoip_ip_mapping table
+    const ipQuery = `INSERT INTO geoip_ip_mapping (ip, network) VALUES ($1, $2) ON CONFLICT (ip) DO NOTHING`;
+    const ipValues = [data.traits.ip_address, data.traits.network];
+    await client.query(ipQuery, ipValues);
+
+    // Add network info to geoip_network table
+    const networkQuery = `
+      INSERT INTO geoip_network (network, geoname_id, registered_country_geoname_id, represented_country_geoname_id, is_anonymous_proxy, is_satellite_provider, postal_code, latitude, longitude, accuracy_radius, is_anycast)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ON CONFLICT (network) DO NOTHING
     `;
-    const values = [
-      data.ip,
-      data.network,
-      data.city,
-      data.region_name,
-      data.country_name,
-      data.latitude,
-      data.longitude,
-      data.geoname_id,
-      data.lang,
+    const networkValues = [
+      data.traits.network,
+      data.city.geoname_id,
+      data.registered_country.geoname_id,
+      data.country.geoname_id,
+      data.is_anonymous_proxy,    // This field is not present in the MaxMind data
+      data.is_satellite_provider, // This field is not present in the MaxMind data
+      data.postal.code,
+      data.location.latitude,
+      data.location.longitude,
+      data.location.accuracy_radius,
+      data.is_anycast,            // This field is not present in the MaxMind data
     ];
-    await client.query(query, values);
+    await client.query(networkQuery, networkValues);
+
+    console.log('Network data added to the database');
+
+    // Add location info to geoip_location table for each language
+    const languages = ['de', 'en', 'es', 'fr', 'ja', 'pt-BR', 'ru', 'zh-CN'];
+    for (const lang of languages) {
+      console.log(`Adding location data for ${lang} to the database`);
+      try{
+        const locationQuery = `
+        INSERT INTO geoip_location (geoname_id, locale_code, continent_name, country_name, subdivision_1_name, subdivision_2_name, city_name, time_zone, is_in_european_union)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+        const locationValues = [
+        data.city.geoname_id,
+        lang,
+        data.continent.names[lang],
+        data.country.names[lang],
+        data.subdivisions[0] ? data.subdivisions[0].names[lang] : null,
+        data.subdivisions[1] ? data.subdivisions[1].names[lang] : null,
+        data.city.names[lang],
+        data.location.time_zone,
+        data.registered_country.is_in_european_union,
+        ];
+        await client.query(locationQuery, locationValues);
+      } catch (err) {
+        console.error('Error adding location data to the database:', err);
+      }
+    }
+
     client.release();
 
     return new Response(JSON.stringify({ message: 'Data added to the database successfully' }), { status: 200 });
