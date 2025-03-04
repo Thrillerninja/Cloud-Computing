@@ -55,7 +55,6 @@ export default function Home() {
           flexDirection: "column",
           alignItems: "center",
           padding: 4,
-          minHeight: "70vh",
           background: 'var(--color-primary)',
         }}
       >
@@ -73,7 +72,7 @@ export default function Home() {
               isLoading={isLoading}
             />
             <LocationInfo location={location} error={error} />
-            <Box sx={{ flexGrow: 1, height: '290px' }} />
+            <Box sx={{ flexGrow: 1, height: '78px' }} />
             <PreferenceSelector
               onLanguageChange={handleLanguageChange}
               selectedLanguage={language}
