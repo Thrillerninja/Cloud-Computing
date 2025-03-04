@@ -17,12 +17,6 @@ export default function useIpLookup(language) {
     }
   }, []);
 
-  useEffect(() => {
-    if (location && location.geoname_id) {
-      loadSecondaryLocationData();
-    }
-  }, [language, location?.geoname_id]);
-
   const initializeUserIp = async () => {
     try {
       const userIp = await fetchUserIp();
@@ -67,7 +61,9 @@ export default function useIpLookup(language) {
         setLocation(data[0]);
 
         // Load secondary location data
-        loadSecondaryLocationData();
+        console.log('Fetched data');
+        console.log(data);
+        loadSecondaryLocationData(data[0].geoname_id);
         
         return true;
       } else {
@@ -84,12 +80,11 @@ export default function useIpLookup(language) {
     }
   };
 
-  const loadSecondaryLocationData = async () => {
-    if (!location?.geoname_id) return;
+  const loadSecondaryLocationData = async (geonameId) => {
     
     try {
       const data = await fetchSecondaryLocationData(
-        location.geoname_id,
+        geonameId,
         language
       );
       
