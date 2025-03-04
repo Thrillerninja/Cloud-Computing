@@ -132,20 +132,6 @@ export default function Home() {
     }
   };
 
-  const fetchFromMaxMind = async (ip) => {
-    try {
-      const response = await fetch(`/api/maxmind/${ip}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch data from MaxMind API');
-      }
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.error('Error fetching from MaxMind:', err);
-      return null;
-    }
-  };
-
   const addToDatabase = async (data) => {
     try {
       const response = await fetch('/api/addToDatabase', {
@@ -166,6 +152,7 @@ export default function Home() {
 
   const secondary_location_search = async () => {
     try {
+      console.log('Language seached:', language);
       const encodedLang = encodeURIComponent(language);
       const response = await fetch (`api/location/${location.geoname_id}?lang=${encodedLang}`)
       const data = await response.json();
@@ -185,17 +172,19 @@ export default function Home() {
   const validateIp = (value) => {
     if (!isIP(value)) {
       setError('Invalid IP address.');
-      return true; // Return false when IP is invalid
+      return false; // Return false when IP is invalid
     } else {
       setError('');
       return true;
     }
   };
 
-  const handleLanguageChange = (newLanguage) => {
+  const handleLanguageChange = async (newLanguage) => {
+    console.log('Language changed:', newLanguage);
     setLanguage(newLanguage);
     if (location && location.geoname_id) {
-      secondary_location_search(location.geoname_id, newLanguage);
+      await new Promise(resolve => setTimeout(resolve, 0.5)); // Ensure state is updated
+      secondary_location_search();
     }
   };
 
