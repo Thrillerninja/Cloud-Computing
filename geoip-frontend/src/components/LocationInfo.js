@@ -8,7 +8,7 @@ const LocationInfo = ({ location, error }) => {
       {location && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h5">Location Information</Typography>
-          <Typography>IP Address: {location.network}</Typography>
+          <Typography>Closest Host: {location.network}</Typography>
           <Typography>City: {location.city_name}</Typography>
           <Typography>Region: {location.subdivision_1_name}</Typography>
           <Typography>Country: {location.country_name}</Typography>

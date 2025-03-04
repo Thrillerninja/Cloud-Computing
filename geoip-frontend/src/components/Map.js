@@ -61,35 +61,35 @@ const LeafletMap = ({
     }
   }, [latitude, longitude]);
 
-//   useEffect(() => {
-//     if (mapRef.current) {
-//       // To Clear existing markers
-//       markersRef.current.forEach((marker) => {
-//         if (mapRef.current) {
-//           mapRef.current.removeLayer(marker);
-//         }
-//       });
-//       markersRef.current = [];
+  useEffect(() => {
+    if (mapRef.current) {
+      // To Clear existing markers
+      markersRef.current.forEach((marker) => {
+        if (mapRef.current) {
+          mapRef.current.removeLayer(marker);
+        }
+      });
+      markersRef.current = [];
 
-//       markers.forEach((markerProps) => {
-//         const marker = L.marker([markerProps.lat, markerProps.lng], {
-//           icon: getIcon(markerProps.status || "default"),
-//         });
+      markers.forEach((markerProps) => {
+        const marker = L.marker([markerProps.lat, markerProps.lng], {
+          icon: getIcon(markerProps.status || "default"),
+        });
 
-//         if (markerProps.popupData) {
-//           const popupContent = Object.entries(markerProps.popupData)
-//             .map(([key, value]) => `<b>${key}:</b> ${value}`)
-//             .join("<br/>");
-//           marker.bindPopup(popupContent);
-//         }
+        if (markerProps.popupData) {
+          const popupContent = Object.entries(markerProps.popupData)
+            .map(([key, value]) => `<b>${key}:</b> ${value}`)
+            .join("<br/>");
+          marker.bindPopup(popupContent);
+        }
 
-//         if (mapRef.current) {
-//           marker.addTo(mapRef.current);
-//         }
-//         markersRef.current.push(marker);
-//       });
-//     }
-//   }, [markers]);
+        if (mapRef.current) {
+          marker.addTo(mapRef.current);
+        }
+        markersRef.current.push(marker);
+      });
+    }
+  }, [markers]);
 
     return (
         <Paper

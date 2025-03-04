@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Box, Paper, Typography } from "@mui/material";
 import dynamic from "next/dynamic";
 import PreferenceSelector from "@/components/PreferenceSelector";
@@ -13,6 +14,28 @@ const LeafletMap = dynamic(() => import("@/components/Map"), { ssr: false });
 export default function Home() {
   const { language, theme, handleLanguageChange, handleThemeChange } = usePreferences();
   const { ip, setIp, location, error, isLoading, searchLocation } = useIpLookup(language);
+  const [markers, setMarkers] = useState([]);
+  const [visitedGeonameIds, setVisitedGeonameIds] = useState(new Set());
+
+  // Update markers based on new location data
+  useEffect(() => {
+    console.log('location:', location);
+    if (location && !visitedGeonameIds.has(location.geoname_id) ) {
+      const newMarker = {
+        lat: location.latitude,
+        lng: location.longitude,
+        status: "Active",
+        popupData: {
+          IP: ip,
+          City: location.city_name,
+          Country: location.country_name,
+        },
+      };
+
+      setMarkers([...markers, newMarker]);
+      setVisitedGeonameIds(new Set(visitedGeonameIds).add(location.geoname_id));
+    }
+  }, [location, ip, markers, visitedGeonameIds]);
 
   return (
     <Box
@@ -25,7 +48,7 @@ export default function Home() {
         minHeight: "100vh",
       }}
     >
-      <Paper 
+      <Paper
         elevation={20}
         sx={{
           display: "flex",
@@ -39,29 +62,29 @@ export default function Home() {
         <Typography variant="h3" sx={{ marginBottom: 2, color: 'var(--color-text)' }}>
           IP Location Finder
         </Typography>
-        
+
         <Box sx={{ textAlign: "center", maxWidth: 800, display: "flex", justifyContent: "space-between" }}>
           <Box sx={{ mt: 4, flex: 1, mr: 2, width: 250, color: 'var(--color-text)' }}>
-            <IpInput 
-              ip={ip} 
-              setIp={setIp} 
-              handleSearch={searchLocation} 
-              error={error} 
+            <IpInput
+              ip={ip}
+              setIp={setIp}
+              handleSearch={searchLocation}
+              error={error}
               isLoading={isLoading}
             />
             <LocationInfo location={location} error={error} />
             <Box sx={{ flexGrow: 1, height: '290px' }} />
-            <PreferenceSelector 
-              onLanguageChange={handleLanguageChange} 
-              selectedLanguage={language} 
-              setTheme={handleThemeChange} 
-              theme={theme} 
+            <PreferenceSelector
+              onLanguageChange={handleLanguageChange}
+              selectedLanguage={language}
+              setTheme={handleThemeChange}
+              theme={theme}
             />
-          </Box>  
-          <Box sx={{ mt: 4, flex: 1, ml: 2, width: 800 }}>
-            <LeafletMap latitude={location?.latitude} longitude={location?.longitude} />
           </Box>
-        </Box>    
+          <Box sx={{ mt: 4, flex: 1, ml: 2, width: 800 }}>
+            <LeafletMap latitude={location?.latitude} longitude={location?.longitude} markers={markers} />
+          </Box>
+        </Box>
       </Paper>
     </Box>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { validateIp } from '@/utils/ipValidation';
 import {
   fetchLocationData,
@@ -16,6 +16,13 @@ export default function useIpLookup(language) {
       initializeUserIp();
     }
   }, []);
+
+  useEffect(() => {
+    // Update location if language changes
+    if (location && ip) {
+      searchLocation();
+    }
+  }, [language]);
 
   const initializeUserIp = async () => {
     try {
@@ -43,27 +50,38 @@ export default function useIpLookup(language) {
     }
   };
 
-  const searchLocation = async () => {
+  const searchLocation = async (searchIP) => {
+    //Ensure searchIP is a string and not a event object
+    if (searchIP && typeof searchIP === 'object') {
+      searchIP = ip;
+      console.log('replace searchIP with ip:', searchIP);
+    }
+
     setIsLoading(true);
     setError('');
+    console.log('Searching location for IP:', searchIP
+    );
     
-    if (!validateIp(ip)) {
-      setError('Invalid IP address: ' + ip);
+    if (!validateIp(searchIP)) {
+      setError('Invalid IP address: ' + searchIP);
       setIsLoading(false);
       return false;
     }
 
     try {
-      const data = await fetchLocationData(ip);
+      const data = await fetchLocationData(searchIP);
       
       if (data && data.length > 0) {
-        // Successfull fetch
-        setLocation(data[0]);
-
         // Load secondary location data
         console.log('Fetched data');
         console.log(data);
-        loadSecondaryLocationData(data[0].geoname_id);
+        const locationData = await loadSecondaryLocationData(data[0].geoname_id);
+
+        // One update to the state with combined data
+        setLocation((prevLocation) => ({
+          ...data[0],
+          ...locationData,
+        }));
         
         return true;
       } else {
@@ -89,7 +107,7 @@ export default function useIpLookup(language) {
       );
       
       if (data && data.length > 0) {
-        setLocation(prevLocation => ({ ...prevLocation, ...data[0] }));
+        return data[0];
       } else {
         setError('No city data found for this IP.');
       }
