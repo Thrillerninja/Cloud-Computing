@@ -1,118 +1,241 @@
+# Terraform configuration
 terraform {
   required_providers {
-    docker = {
-      source  = "kreuzwerker/docker"
-      version = "~> 3.0"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
     }
   }
 }
+provider "azurerm" {
+  features {}
+  resource_provider_registrations = "none"
 
-provider "docker" {}
+  subscription_id = 
+  client_id       = 
+  client_secret   = 
+  tenant_id       = 
+}
 
-resource "docker_network" "app_network" {
-  name = "app_network"
-  ipam_config {
-    subnet = "172.22.0.0/16"
+# Create a resource group
+resource "azurerm_resource_group" "rg" {
+  name     = "cloud-computing-rg"
+  location = "westeurope"
+}
+
+# Create a virtual network
+resource "azurerm_virtual_network" "vnet" {
+  name                = "app-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Create a subnet
+resource "azurerm_subnet" "subnet" {
+  name                 = "app-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+# Create network interfaces for each service
+resource "azurerm_network_interface" "db_nic" {
+  name                = "db-nic"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.db_pip.id
   }
 }
 
-# PostgreSQL container
-resource "docker_container" "db" {
-  name  = "postgres-server"
-  image = "postgres:14"
-  
-  networks_advanced {
-    name         = docker_network.app_network.name
-    ipv4_address = "172.22.0.2"
+resource "azurerm_network_interface" "app_nic" {
+  name                = "app-nic"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.app_pip.id
   }
-  
-  ports {
-    internal = 5432
-    external = 5432
+}
+
+resource "azurerm_network_interface" "pgadmin_nic" {
+  name                = "pgadmin-nic"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.pgadmin_pip.id
   }
-  
-  volumes {
-    container_path = "/var/lib/postgresql/data"
-    host_path      = "${path.cwd}/postgres-data"
-  }
-  
-  env = [
-    "POSTGRES_USER=geoip",
-    "POSTGRES_PASSWORD=password",
-    "POSTGRES_DB=geoipdb"
+}
+
+# Allocate public IP addresses for each service
+resource "azurerm_public_ip" "db_pip" {
+  name                = "db-pip"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Dynamic"
+  sku                 = "Basic"
+}
+
+resource "azurerm_public_ip" "app_pip" {
+  name                = "app-pip"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Dynamic"
+  sku                 = "Basic"
+}
+
+resource "azurerm_public_ip" "pgadmin_pip" {
+  name                = "pgadmin-pip"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+}
+
+# Create a Network Security Group
+resource "azurerm_network_security_group" "nsg" {
+  name                = "vm-nsg"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Allow inbound traffic on ports 22, 80, 3000, 5432, 8080
+resource "azurerm_network_security_rule" "allow_ports" {
+  count                     = 5
+  name                      = "allow-port-${element(["22", "80", "3000", "5050", "5432", "8080"], count.index)}"
+  priority                  = 100 + count.index
+  direction                 = "Inbound"
+  access                    = "Allow"
+  protocol                  = "Tcp"
+  source_port_range         = "*"
+  destination_port_range    = element(["22", "80", "3000", "5050", "5432", "8080"], count.index)
+  source_address_prefix     = "*"
+  destination_address_prefix = "*"
+  resource_group_name       = azurerm_resource_group.rg.name
+  network_security_group_name = azurerm_network_security_group.nsg.name
+}
+
+# Associate NSG with network interfaces
+resource "azurerm_network_interface_security_group_association" "db_nic_nsg" {
+  network_interface_id      = azurerm_network_interface.db_nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+resource "azurerm_network_interface_security_group_association" "app_nic_nsg" {
+  network_interface_id      = azurerm_network_interface.app_nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+resource "azurerm_network_interface_security_group_association" "pgadmin_nic_nsg" {
+  network_interface_id      = azurerm_network_interface.pgadmin_nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+# Create virtual machines for each service
+resource "azurerm_linux_virtual_machine" "db_vm" {
+  name                = "db-vm"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  size                = "Standard_DS1_v2"
+  admin_username      = "adminuser"
+  network_interface_ids = [
+    azurerm_network_interface.db_nic.id,
   ]
-  
-  # Install Python when container starts
-  command = [
-    "sh", "-c", 
-    "apt-get update && apt-get install -y python3 && docker-entrypoint.sh postgres"
+
+  admin_ssh_key {
+    username   = "adminuser"
+    public_key = file("${path.module}/.ssh/ssh_key.pub")
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts"
+    version   = "latest"
+  }
+}
+
+resource "azurerm_linux_virtual_machine" "app_vm" {
+  name                = "app-vm"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  size                = "Standard_DS1_v2"
+  admin_username      = "adminuser"
+  network_interface_ids = [
+    azurerm_network_interface.app_nic.id,
   ]
+
+  admin_ssh_key {
+    username   = "adminuser"
+    public_key = file("${path.module}/.ssh/ssh_key.pub")
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts"
+    version   = "latest"
+  }
 }
 
-# pgAdmin container
-resource "docker_container" "pgadmin" {
-  name  = "pgadmin-server"
-  image = "dpage/pgadmin4"
-  
-  networks_advanced {
-    name         = docker_network.app_network.name
-    ipv4_address = "172.22.0.4"
-  }
-  
-  ports {
-    internal = 80
-    external = 8080
-  }
-  
-  env = [
-    "PGADMIN_DEFAULT_EMAIL=admin@admin.com",
-    "PGADMIN_DEFAULT_PASSWORD=admin"
+resource "azurerm_linux_virtual_machine" "pgadmin_vm" {
+  name                = "pgadmin-vm"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  size                = "Standard_DS1_v2"
+  admin_username      = "adminuser"
+  network_interface_ids = [
+    azurerm_network_interface.pgadmin_nic.id,
   ]
-}
 
-# Next.js container
-resource "docker_container" "app" {
-  name  = "nextjs-server"
-  image = "node:18"
-  
-  networks_advanced {
-    name         = docker_network.app_network.name
-    ipv4_address = "172.22.0.3"
+  admin_ssh_key {
+    username   = "adminuser"
+    public_key = file("${path.module}/.ssh/ssh_key.pub")
   }
-  
-  ports {
-    internal = 3000
-    external = 3000
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
   }
-  
-  volumes {
-    container_path = "/app"
-    host_path      = "${path.cwd}/geoip-frontend"
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts"
+    version   = "latest"
   }
-  
-  env = [
-    "DB_USER=geoip",
-    "DB_HOST=172.22.0.2",
-    "DB_NAME=geoipdb",
-    "DB_PASSWORD=password",
-    "DB_PORT=5432"
-  ]
-  
-  # Install Python when container starts and keep running
-  command = [
-    "sh", "-c", 
-    "apt-get update && apt-get install -y python3 && tail -f /dev/null"
-  ]
 }
 
-output "db_ip" {
-  value = "172.22.0.2"
+# Output public IP addresses of the services
+output "db_public_ip" {
+  value = azurerm_public_ip.db_pip.ip_address
 }
 
-output "app_ip" {
-  value = "172.22.0.3"
+output "app_public_ip" {
+  value = azurerm_public_ip.app_pip.ip_address
 }
 
-output "pgadmin_ip" {
-  value = "172.22.0.4"
+output "pgadmin_public_ip" {
+  value = azurerm_public_ip.pgadmin_pip.ip_address
 }

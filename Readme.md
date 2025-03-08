@@ -15,3 +15,7 @@ Bonus Punkte:
 - Tests für die Web-App
 - Aufbau einer CI/CD Pipeline
 - Load balancing
+
+
+## Ansible Passwords
+Vault Master Password: `vaultpw`

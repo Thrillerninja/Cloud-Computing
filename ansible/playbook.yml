@@ -1,102 +1,437 @@
----
 - name: Configure PostgreSQL
-  hosts: database
+  hosts: db-vm
   vars:
     ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - ./passwords.yml
   tasks:
-    - name: Install Python and PostgreSQL dependencies
-      raw: |
-        until apt-get update && apt-get install -y python3-pip python3-psycopg2; do
-          echo "Waiting for apt lock to be released..."
-          sleep 5
-        done
-      args:
-        executable: /bin/bash
-      
-    - name: Gather facts (now that Python is available)
-      setup:
-      
-    - name: Ensure PostgreSQL is ready
-      wait_for:
-        port: 5432
-        delay: 5
-        timeout: 30
+    - name: Install PostgreSQL and Python prerequisites
+      become: true
+      apt:
+        update_cache: yes
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+          - acl
+        state: present
 
-    - name: Copy initial SQL scripts
+    - name: Ensure PostgreSQL is started and enabled
+      become: true
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Create PostgreSQL user
+      become: true
+      command: sudo -u postgres psql -c "CREATE USER {{ DB_USER }} WITH PASSWORD '{{ DB_PASSWORD }}' CREATEDB;"
+      register: create_user_output
+      failed_when: create_user_output.rc != 0 and "already exists" not in create_user_output.stderr
+      changed_when: create_user_output.rc == 0
+
+    - name: Create PostgreSQL database
+      become: true
+      command: sudo -u postgres psql -c "CREATE DATABASE {{ DB_NAME }} OWNER {{ DB_USER }};"
+      register: create_db_output
+      failed_when: create_db_output.rc != 0 and "already exists" not in create_db_output.stderr
+      changed_when: create_db_output.rc == 0
+
+    # Find PostgreSQL configuration files
+    - name: Find postgresql.conf file
+      become: true
+      shell: find /etc/postgresql -name postgresql.conf | head -n 1
+      register: postgresql_conf_path
+      changed_when: false
+
+    - name: Find pg_hba.conf file
+      become: true
+      shell: find /etc/postgresql -name pg_hba.conf | head -n 1
+      register: pg_hba_conf_path
+      changed_when: false
+
+    # Modify configuration files directly
+    - name: Update postgresql.conf for remote connections
+      become: true
+      lineinfile:
+        path: "{{ postgresql_conf_path.stdout }}"
+        regexp: '^#?listen_addresses\s*=\s*.*$'
+        line: "listen_addresses = '*'"
+        state: present
+      register: postgresql_conf_updated
+
+    - name: Add entry to pg_hba.conf for remote connections
+      become: true
+      lineinfile:
+        path: "{{ pg_hba_conf_path.stdout }}"
+        regexp: '^host\s+all\s+all\s+0.0.0.0/0\s+.*$'
+        line: 'host    all             all             0.0.0.0/0               md5'
+        state: present
+      register: pg_hba_conf_updated
+
+    - name: Restart PostgreSQL if configuration was updated
+      become: true
+      service:
+        name: postgresql
+        state: restarted
+      when: postgresql_conf_updated.changed or pg_hba_conf_updated.changed
+
+    # Create directory for SQL scripts
+    - name: Create directory for SQL scripts
+      become: true
+      file:
+        path: /tmp/sql
+        state: directory
+        mode: '0755'
+
+    # Download or copy your SQL scripts
+    - name: Clone repository containing SQL scripts
+      become: true
+      git:
+        repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+        dest: /tmp/sql-repo
+        version: main
+
+    - name: Find SQL files in repository
+      become: true
+      find:
+        paths: /tmp/sql-repo/sql_definitions
+        patterns: "*.sql"
+        recurse: yes
+      register: sql_files
+      changed_when: false
+
+    - name: Display found SQL files
+      debug:
+        var: sql_files
+
+    - name: Copy found SQL files to working directory
+      become: true
       copy:
-        src: ../init_ip_mapping.sql
-        dest: /docker-entrypoint-initdb.d/init_ip_mapping.sql
+        src: "{{ item.path }}"
+        dest: "/tmp/sql/"
+        remote_src: yes
+      loop: "{{ sql_files.files }}"
+      when: sql_files.matched > 0
 
-    - name: Copy location configuration script
-      copy:
-        src: ../init_locations.sql
-        dest: /docker-entrypoint-initdb.d/init_locations.sql
+    - name: List SQL files in destination directory
+      become: true
+      shell: ls -la /tmp/sql/
+      register: sql_dir_contents
+      changed_when: false
 
-    - name: Copy network configuration script
-      copy:
-        src: ../init_networks.sql
-        dest: /docker-entrypoint-initdb.d/init_networks.sql 
- 
-    - name: Run initial SQL script
-      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_ip_mapping.sql
-      args:
-        executable: /bin/bash
+    - name: Display SQL files in destination directory
+      debug:
+        var: sql_dir_contents.stdout_lines
 
-    - name: Run location configuration script
-      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_locations.sql
-      args:
-        executable: /bin/bash
+    # Execute SQL scripts
+    - name: Execute SQL initialization scripts
+      become: true
+      command: sudo -u postgres psql -d {{ DB_NAME }} -f /tmp/sql/{{ item }}
+      with_items:
+        - init_ip_mapping.sql
+        - init_locations.sql
+        - init_networks.sql
+      register: sql_execution
+      failed_when: sql_execution.rc != 0 and "already exists" not in sql_execution.stderr
+      changed_when: sql_execution.rc == 0
 
-    - name: Run network configuration script
-      shell: psql -U geoip -d geoipdb -f /docker-entrypoint-initdb.d/init_networks.sql
-      args:
-        executable: /bin/bash
+    # Grant privileges
+    - name: Grant privileges to user on all database objects
+      become: true
+      command: sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE {{ DB_NAME }} TO {{ DB_USER }};"
 
-# - name: Configure pgAdmin
-#   hosts: pgadmin
-#   tasks:
-#     - name: Ensure pgAdmin is ready
-#       wait_for:
-#         port: 8080
-#         delay: 5
-#         timeout: 30
+    - name: Grant privileges on all tables in public schema
+      become: true
+      command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {{ DB_USER }};"
+
+    - name: Grant privileges on all sequences in public schema
+      become: true
+      command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {{ DB_USER }};"
+
+    - name: Grant privileges on all functions in public schema
+      become: true
+      command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO {{ DB_USER }};"
+
 
 - name: Configure Next.js App
-  hosts: frontend
+  hosts: app-vm
+  vars_files:
+    - ./passwords.yml
   tasks:
+    - name: Ensure /app directory exists
+      become: true
+      file:
+        path: /app
+        state: directory
+        mode: '0755'
+
+    - name: Clone repository containing Next.js app
+      become: true
+      git:
+        repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+        dest: /app
+        version: main
+
+    - name: Verify package.json exists
+      stat:
+        path: /app/geoip-frontend/package.json
+      register: package_json
+
+    - name: Fail if package.json is missing
+      fail:
+        msg: "The package.json file is missing in /app/geoip-frontend. Ensure the application code is deployed correctly."
+      when: not package_json.stat.exists
+
+    - name: Add NodeSource repository for Node.js 18.x
+      become: true
+      shell: curl -sL https://deb.nodesource.com/setup_18.x | bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install Node.js and npm
+      become: true
+      apt:
+        update_cache: yes
+        name:
+          - nodejs
+        state: present
+
+    - name: Install build-essential for compiling native addons
+      become: true
+      apt:
+        name: build-essential
+        state: present
+
+    - name: Install PostgreSQL client
+      become: true
+      apt:
+        name: postgresql-client
+        state: present
+
     - name: Install dependencies
+      become: true
       shell: |
-        cd /app
+        cd /app/geoip-frontend
         if [ ! -d "node_modules" ]; then
           npm install
         fi
       args:
         executable: /bin/bash
-    
-    # - name: Build Next.js app
-    #   shell: |
-    #     cd /app
-    #     npm run build
-    #   args:
-    #     executable: /bin/bash
-    
+
     - name: Kill process using port 3000 if exists
+      become: true
       shell: |
-        if lsof -i:3000; then
-          kill -9 $(lsof -t -i:3000)
-        fi
+        pkill -9 ^next-server
       args:
         executable: /bin/bash
-    
-    - name: Start Next.js app
+
+    - name: Get DB VM private IP
+      become: true
       shell: |
-        cd /app
-        nohup npm run dev > /app/nextjs.log 2>&1 &
+        hostname -I | awk '{print $1}'
+      register: db_private_ip
+      delegate_to: db-vm
+
+    - name: Verify database connectivity
+      become: true
+      shell: |
+        PGPASSWORD="{{ DB_PASSWORD }}" psql -h "{{ db_private_ip.stdout | default('10.0.1.4') }}" -U {{ DB_USER }} -d {{ DB_NAME }} -c '\dt'
+      register: db_connectivity
+      args:
+        executable: /bin/bash
+
+    - name: Print database connectivity result
+      debug:
+        msg: "Database connectivity result: {{ db_connectivity.stdout }}"
+
+    - name: Start Next.js app
+      become: true
+      shell: |
+        cd /app/geoip-frontend
+        nohup npm run dev > /app/geoip-frontend/nextjs.log 2>&1 &
       args:
         executable: /bin/bash
       environment:
-        DB_USER: geoip
-        DB_HOST: 172.22.0.2
-        DB_NAME: geoipdb
-        DB_PASSWORD: password
+        DB_USER: "{{ DB_USER }}"
+        DB_HOST: "{{ db_private_ip.stdout | default('10.0.1.4') }}"
+        DB_NAME: "{{ DB_NAME }}"
+        DB_PASSWORD: "{{ DB_PASSWORD }}"
         DB_PORT: "5432"
+        MAXMIND_USER_ID: "{{ MAXMIND_USER_ID }}"
+        MAXMIND_LICENSE_KEY: "{{ MAXMIND_LICENSE_KEY }}"
+      async: 45
+      poll: 0
+      when: package_json.stat.exists
+
+    - name: Wait for Next.js app to start
+      wait_for:
+        port: 3000
+        delay: 5
+        timeout: 30
+
+    - name: Check Next.js app logs
+      become: true
+      shell: cat /app/geoip-frontend/nextjs.log
+      register: nextjs_log
+
+    - name: Print Next.js app logs
+      debug:
+        msg: "Next.js app logs: {{ nextjs_log.stdout }}"
+
+- name: Configure pgAdmin
+  hosts: pgadmin-vm
+  vars_files:
+    - ./passwords.yml
+  tasks:
+    - name: Install dependencies
+      become: true
+      apt:
+        update_cache: yes
+        name:
+          - curl
+          - gnupg
+          - apt-transport-https
+        state: present
+
+    - name: Get OS details
+      command: lsb_release -cs
+      register: os_codename
+      changed_when: false
+
+    - name: Add pgAdmin repository key
+      become: true
+      shell: |
+        curl -fsSL https://www.pgadmin.org/static/packages_pgadmin_org.pub | sudo gpg --dearmor -o /usr/share/keyrings/packages-pgadmin-org.gpg
+      args:
+        creates: /usr/share/keyrings/packages-pgadmin-org.gpg
+
+    - name: Add pgAdmin repository
+      become: true
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/packages-pgadmin-org.gpg] https://ftp.postgresql.org/pub/pgadmin/pgadmin4/apt/{{ os_codename.stdout }} pgadmin4 main"
+        state: present
+        filename: pgadmin4
+
+    - name: Update apt cache
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: List available packages matching pgadmin
+      become: true
+      shell: apt-cache search pgadmin
+      register: available_packages
+      changed_when: false
+
+    - name: Display available pgadmin packages
+      debug:
+        var: available_packages.stdout_lines
+
+    - name: Install pgAdmin4
+      become: true
+      apt:
+        name: pgadmin4
+        state: present
+
+    - name: Install expect
+      become: true
+      apt:
+        name: expect
+        state: present
+
+    # Add new task to install Flask in pgAdmin's virtual environment
+    - name: Install Flask in pgAdmin virtual environment
+      become: true
+      shell: |
+        source /usr/pgadmin4/venv/bin/activate
+        pip install flask
+        deactivate
+      args:
+        executable: /bin/bash
+
+    - name: Create expects script for pgAdmin setup
+      become: true
+      copy:
+        dest: /tmp/pgadmin_setup.exp
+        mode: 0755
+        content: |
+          #!/usr/bin/expect -f
+          set timeout 60
+          spawn /usr/pgadmin4/bin/setup-web.sh
+          expect "Email address:"
+          send "{{ pgadmin_email }}\r"
+          expect "Password:"
+          send "{{ pgadmin_password }}\r"
+          expect "Retype password:"
+          send "{{ pgadmin_password }}\r"
+          expect eof
+
+    - name: Run pgAdmin setup
+      become: true
+      command: /tmp/pgadmin_setup.exp
+      args:
+        creates: /var/lib/pgadmin/pgadmin4.db
+
+    - name: Configure Apache to listen on port 5050
+      become: true
+      copy:
+        dest: /etc/apache2/ports.conf
+        content: |
+          Listen 80
+          Listen 5050
+
+          <IfModule ssl_module>
+            Listen 443
+          </IfModule>
+
+          <IfModule mod_gnutls.c>
+            Listen 443
+          </IfModule>
+        mode: '0644'
+
+    # Updated VirtualHost config with fixed WSGI daemon configuration 
+    - name: Create pgAdmin VirtualHost config
+      become: true
+      copy:
+        dest: /etc/apache2/sites-available/pgadmin.conf
+        content: |
+          <VirtualHost *:5050>
+              ServerName pgadmin.local
+              WSGIDaemonProcess pgadmin_process processes=1 threads=25 python-home=/usr/pgadmin4/venv
+              WSGIScriptAlias / /usr/pgadmin4/web/pgAdmin4.wsgi
+
+              <Directory /usr/pgadmin4/web/>
+                  WSGIProcessGroup pgadmin_process
+                  WSGIApplicationGroup %{GLOBAL}
+                  Require all granted
+              </Directory>
+          </VirtualHost>
+        mode: '0644'
+
+    - name: Enable pgAdmin site
+      become: true
+      command: a2ensite pgadmin.conf
+      register: enable_site
+      changed_when: "'Enabling site pgadmin' in enable_site.stdout"
+
+    - name: Check Apache config
+      become: true
+      command: apache2ctl configtest
+      register: apache_config_test
+      changed_when: false
+      failed_when: apache_config_test.rc != 0
+
+    - name: Restart Apache
+      become: true
+      service:
+        name: apache2
+        state: restarted
+      when: enable_site.changed or apache_config_test.rc == 0
+
+    - name: Allow pgAdmin port
+      become: true
+      ufw:
+        rule: allow
+        port: '5050'
+        proto: tcp

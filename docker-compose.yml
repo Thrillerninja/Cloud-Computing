@@ -1,8 +1,0 @@
-version: '3'
-
-# services:
-  # Empty - we'll let Terraform handle container creation
-  
-networks:
-  app_network:
-    external: true  # Mark as external so Docker Compose doesn't try to create it
