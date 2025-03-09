@@ -6,11 +6,23 @@ terraform {
       version = "~> 4.0"
     }
   }
+  required_version = ">= 0.12"
 }
+
+# Import keys.tf
+module "keys" {
+  source = "./keys.tf"
+}
+
+# Use keys from keys.tf
 provider "azurerm" {
   features {}
   resource_provider_registrations = "none"
 
+  subscription_id = module.keys.subscription_id
+  client_id       = module.keys.client_id
+  client_secret   = module.keys.client_secret
+  tenant_id       = module.keys.tenant_id
 }
 
 # Create a resource group
@@ -76,7 +88,6 @@ resource "azurerm_network_interface" "monitoring_nic" {
   }
 }
 
-
 # Allocate public IP addresses for each service
 resource "azurerm_public_ip" "db_pip" {
   name                = "db-pip"
@@ -102,6 +113,7 @@ resource "azurerm_public_ip" "lb_pip" {
     command = "echo load_balancer_ip=${azurerm_public_ip.lb_pip.ip_address} >> update_inventory.sh"
   }
 }
+
 # Create load balancer
 resource "azurerm_lb" "app_lb" {
   name                = "app-lb"
@@ -131,13 +143,13 @@ resource "azurerm_network_interface_backend_address_pool_association" "app_pool_
 
 # Create health probe
 resource "azurerm_lb_probe" "app_probe" {
-  loadbalancer_id = azurerm_lb.app_lb.id
-  name            = "http-running-probe"
-  port            = 3000
-  protocol        = "Http"
-  request_path    = "/"
+  loadbalancer_id     = azurerm_lb.app_lb.id
+  name                = "http-running-probe"
+  port                = 3000
+  protocol            = "Http"
+  request_path        = "/"
   interval_in_seconds = 15
-  number_of_probes = 2
+  number_of_probes    = 2
 }
 
 # Create LB rule
@@ -184,17 +196,17 @@ resource "azurerm_network_security_group" "nsg" {
 
 # Allow inbound traffic on ports 22, 80, 3000, 5432, 8080
 resource "azurerm_network_security_rule" "allow_ports" {
-  count                     = 8
-  name                      = "allow-port-${element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)}"
-  priority                  = 100 + count.index
-  direction                 = "Inbound"
-  access                    = "Allow"
-  protocol                  = "Tcp"
-  source_port_range         = "*"
-  destination_port_range    = element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)
-  source_address_prefix     = "*"
+  count                      = 8
+  name                       = "allow-port-${element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)}"
+  priority                   = 100 + count.index
+  direction                  = "Inbound"
+  access                     = "Allow"
+  protocol                   = "Tcp"
+  source_port_range          = "*"
+  destination_port_range     = element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)
+  source_address_prefix      = "*"
   destination_address_prefix = "*"
-  resource_group_name       = azurerm_resource_group.rg.name
+  resource_group_name        = azurerm_resource_group.rg.name
   network_security_group_name = azurerm_network_security_group.nsg.name
 }
 
@@ -328,7 +340,6 @@ output "app_vm_1_private_ip" {
 }
 
 # max of 3 public IPs and 4 VMs in student plan
-
 
 # Create inventory.ini file directly with the correct format
 resource "local_file" "update_inventory_script" {

@@ -1,0 +1,10 @@
+---
+- name: DB VM setup
+  ansible.builtin.import_tasks:
+    file: playbook/db_playbook.yml
+- name: Frontend VM setup
+  ansible.builtin.import_tasks:
+    file: playbook/frontend_playbook.yml
+- name: Monitoring VM setup
+  ansible.builtin.import_tasks:
+    file: playbook/monitoring_playbook.yml
