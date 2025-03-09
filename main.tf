@@ -11,10 +11,6 @@ provider "azurerm" {
   features {}
   resource_provider_registrations = "none"
 
-  subscription_id = 
-  client_id       = 
-  client_secret   = 
-  tenant_id       = 
 }
 
 # Create a resource group
@@ -53,8 +49,10 @@ resource "azurerm_network_interface" "db_nic" {
   }
 }
 
+# Create multiple NICs for app VMs
 resource "azurerm_network_interface" "app_nic" {
-  name                = "app-nic"
+  count               = 2
+  name                = "app-nic-${count.index}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -62,12 +60,11 @@ resource "azurerm_network_interface" "app_nic" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.app_pip.id
   }
 }
 
-resource "azurerm_network_interface" "pgadmin_nic" {
-  name                = "pgadmin-nic"
+resource "azurerm_network_interface" "monitoring_nic" {
+  name                = "monitoring-nic"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -75,9 +72,10 @@ resource "azurerm_network_interface" "pgadmin_nic" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pgadmin_pip.id
+    public_ip_address_id          = azurerm_public_ip.monitoring_pip.id
   }
 }
+
 
 # Allocate public IP addresses for each service
 resource "azurerm_public_ip" "db_pip" {
@@ -86,21 +84,95 @@ resource "azurerm_public_ip" "db_pip" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Dynamic"
   sku                 = "Basic"
+
+  provisioner "local-exec" {
+    command = "echo db_public_ip=${azurerm_public_ip.db_pip.ip_address} >> update_inventory.sh"
+  }
 }
 
-resource "azurerm_public_ip" "app_pip" {
-  name                = "app-pip"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
-  sku                 = "Basic"
-}
-
-resource "azurerm_public_ip" "pgadmin_pip" {
-  name                = "pgadmin-pip"
+# Create public IP for load balancer
+resource "azurerm_public_ip" "lb_pip" {
+  name                = "lb-pip"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
+  sku                 = "Standard"
+
+  provisioner "local-exec" {
+    command = "echo load_balancer_ip=${azurerm_public_ip.lb_pip.ip_address} >> update_inventory.sh"
+  }
+}
+# Create load balancer
+resource "azurerm_lb" "app_lb" {
+  name                = "app-lb"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "Standard"
+
+  frontend_ip_configuration {
+    name                 = "PublicIPAddress"
+    public_ip_address_id = azurerm_public_ip.lb_pip.id
+  }
+}
+
+# Create backend address pool
+resource "azurerm_lb_backend_address_pool" "app_backend_pool" {
+  loadbalancer_id = azurerm_lb.app_lb.id
+  name            = "AppBackendPool"
+}
+
+# Associate NICs with backend pool
+resource "azurerm_network_interface_backend_address_pool_association" "app_pool_association" {
+  count                   = 2
+  network_interface_id    = azurerm_network_interface.app_nic[count.index].id
+  ip_configuration_name   = "internal"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.app_backend_pool.id
+}
+
+# Create health probe
+resource "azurerm_lb_probe" "app_probe" {
+  loadbalancer_id = azurerm_lb.app_lb.id
+  name            = "http-running-probe"
+  port            = 3000
+  protocol        = "Http"
+  request_path    = "/"
+  interval_in_seconds = 15
+  number_of_probes = 2
+}
+
+# Create LB rule
+resource "azurerm_lb_rule" "app_rule" {
+  loadbalancer_id                = azurerm_lb.app_lb.id
+  name                           = "http"
+  protocol                       = "Tcp"
+  frontend_port                  = 80
+  backend_port                   = 3000
+  frontend_ip_configuration_name = "PublicIPAddress"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.app_backend_pool.id]
+  probe_id                       = azurerm_lb_probe.app_probe.id
+}
+
+# Create LB rule for SSH
+resource "azurerm_lb_rule" "ssh_rule" {
+  loadbalancer_id                = azurerm_lb.app_lb.id
+  name                           = "ssh"
+  protocol                       = "Tcp"
+  frontend_port                  = 22
+  backend_port                   = 22
+  frontend_ip_configuration_name = "PublicIPAddress"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.app_backend_pool.id]
+  probe_id                       = azurerm_lb_probe.app_probe.id
+}
+
+resource "azurerm_public_ip" "monitoring_pip" {
+  name                = "monitoring-pip"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+
+  provisioner "local-exec" {
+    command = "echo monitoring_public_ip=${azurerm_public_ip.monitoring_pip.ip_address} >> update_inventory.sh"
+  }
 }
 
 # Create a Network Security Group
@@ -112,14 +184,14 @@ resource "azurerm_network_security_group" "nsg" {
 
 # Allow inbound traffic on ports 22, 80, 3000, 5432, 8080
 resource "azurerm_network_security_rule" "allow_ports" {
-  count                     = 5
-  name                      = "allow-port-${element(["22", "80", "3000", "5050", "5432", "8080"], count.index)}"
+  count                     = 8
+  name                      = "allow-port-${element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)}"
   priority                  = 100 + count.index
   direction                 = "Inbound"
   access                    = "Allow"
   protocol                  = "Tcp"
   source_port_range         = "*"
-  destination_port_range    = element(["22", "80", "3000", "5050", "5432", "8080"], count.index)
+  destination_port_range    = element(["22", "80", "3000", "5050", "5432", "8080", "9090", "19999"], count.index)
   source_address_prefix     = "*"
   destination_address_prefix = "*"
   resource_group_name       = azurerm_resource_group.rg.name
@@ -133,12 +205,13 @@ resource "azurerm_network_interface_security_group_association" "db_nic_nsg" {
 }
 
 resource "azurerm_network_interface_security_group_association" "app_nic_nsg" {
-  network_interface_id      = azurerm_network_interface.app_nic.id
+  count                     = 2
+  network_interface_id      = azurerm_network_interface.app_nic[count.index].id
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
-resource "azurerm_network_interface_security_group_association" "pgadmin_nic_nsg" {
-  network_interface_id      = azurerm_network_interface.pgadmin_nic.id
+resource "azurerm_network_interface_security_group_association" "monitoring_nic_nsg" {
+  network_interface_id      = azurerm_network_interface.monitoring_nic.id
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
@@ -171,14 +244,16 @@ resource "azurerm_linux_virtual_machine" "db_vm" {
   }
 }
 
+# Create multiple app VMs
 resource "azurerm_linux_virtual_machine" "app_vm" {
-  name                = "app-vm"
+  count               = 2  # Create 2 instances
+  name                = "app-vm-${count.index}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = "Standard_DS1_v2"
   admin_username      = "adminuser"
   network_interface_ids = [
-    azurerm_network_interface.app_nic.id,
+    azurerm_network_interface.app_nic[count.index].id,
   ]
 
   admin_ssh_key {
@@ -199,14 +274,14 @@ resource "azurerm_linux_virtual_machine" "app_vm" {
   }
 }
 
-resource "azurerm_linux_virtual_machine" "pgadmin_vm" {
-  name                = "pgadmin-vm"
+resource "azurerm_linux_virtual_machine" "monitoring_vm" {
+  name                = "monitoring-vm"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = "Standard_DS1_v2"
   admin_username      = "adminuser"
   network_interface_ids = [
-    azurerm_network_interface.pgadmin_nic.id,
+    azurerm_network_interface.monitoring_nic.id,
   ]
 
   admin_ssh_key {
@@ -229,13 +304,65 @@ resource "azurerm_linux_virtual_machine" "pgadmin_vm" {
 
 # Output public IP addresses of the services
 output "db_public_ip" {
-  value = azurerm_public_ip.db_pip.ip_address
+  value       = azurerm_public_ip.db_pip.ip_address   # No public IP address for the database -> Safer configuration  
+  depends_on  = [azurerm_public_ip.db_pip]            # Also, the student version has a max of 3 pips
 }
 
-output "app_public_ip" {
-  value = azurerm_public_ip.app_pip.ip_address
+output "monitoring_public_ip" {
+  value       = azurerm_public_ip.monitoring_pip.ip_address
+  depends_on  = [azurerm_public_ip.monitoring_pip]
 }
 
-output "pgadmin_public_ip" {
-  value = azurerm_public_ip.pgadmin_pip.ip_address
+# Output load balancer IP
+output "load_balancer_ip" {
+  value = azurerm_public_ip.lb_pip.ip_address
+}
+
+# Output private IP addresses of the app VMs
+output "app_vm_0_private_ip" {
+  value = azurerm_network_interface.app_nic[0].private_ip_address
+}
+
+output "app_vm_1_private_ip" {
+  value = azurerm_network_interface.app_nic[1].private_ip_address
+}
+
+# max of 3 public IPs and 4 VMs in student plan
+
+
+# Create inventory.ini file directly with the correct format
+resource "local_file" "update_inventory_script" {
+  filename = "${path.module}/ansible/inventory.ini"
+  content = <<-EOT
+[database]
+db ansible_host=${azurerm_public_ip.db_pip.ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
+
+[app]
+app-0 ansible_host=${azurerm_network_interface.app_nic[0].private_ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -i ../.ssh/ssh_key -o StrictHostKeyChecking=no adminuser@${azurerm_public_ip.db_pip.ip_address}"'
+app-1 ansible_host=${azurerm_network_interface.app_nic[1].private_ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -i ../.ssh/ssh_key -o StrictHostKeyChecking=no adminuser@${azurerm_public_ip.db_pip.ip_address}"'
+
+[monitoring]
+monitoring ansible_host=${azurerm_public_ip.monitoring_pip.ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
+
+[loadbalancer]
+loadbalancer ansible_host=${azurerm_public_ip.lb_pip.ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
+EOT
+
+  depends_on = [
+    azurerm_public_ip.db_pip,
+    azurerm_public_ip.monitoring_pip,
+    azurerm_public_ip.lb_pip,
+    azurerm_linux_virtual_machine.app_vm
+  ]
+}
+
+# Then use a null_resource to run the script
+resource "null_resource" "run_update_inventory" {
+  provisioner "local-exec" {
+    command = "bash ${path.module}/update_inventory.sh && bash -c 'source ${path.module}/update_inventory.sh && envsubst < ${path.module}/inventory_template.ini > ${path.module}/inventory.ini'"
+  }
+
+  depends_on = [
+    local_file.update_inventory_script
+  ]
 }
