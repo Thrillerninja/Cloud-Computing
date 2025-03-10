@@ -11,7 +11,7 @@ terraform {
 
 # Import keys.tf
 module "keys" {
-  source = "./keys.tf"
+  source = "./keys"
 }
 
 # Use keys from keys.tf
@@ -95,10 +95,6 @@ resource "azurerm_public_ip" "db_pip" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Dynamic"
   sku                 = "Basic"
-
-  provisioner "local-exec" {
-    command = "echo db_public_ip=${azurerm_public_ip.db_pip.ip_address} >> update_inventory.sh"
-  }
 }
 
 # Create public IP for load balancer
@@ -108,10 +104,6 @@ resource "azurerm_public_ip" "lb_pip" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-
-  provisioner "local-exec" {
-    command = "echo load_balancer_ip=${azurerm_public_ip.lb_pip.ip_address} >> update_inventory.sh"
-  }
 }
 
 # Create load balancer
@@ -181,10 +173,6 @@ resource "azurerm_public_ip" "monitoring_pip" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
-
-  provisioner "local-exec" {
-    command = "echo monitoring_public_ip=${azurerm_public_ip.monitoring_pip.ip_address} >> update_inventory.sh"
-  }
 }
 
 # Create a Network Security Group
@@ -364,16 +352,5 @@ EOT
     azurerm_public_ip.monitoring_pip,
     azurerm_public_ip.lb_pip,
     azurerm_linux_virtual_machine.app_vm
-  ]
-}
-
-# Then use a null_resource to run the script
-resource "null_resource" "run_update_inventory" {
-  provisioner "local-exec" {
-    command = "bash ${path.module}/update_inventory.sh && bash -c 'source ${path.module}/update_inventory.sh && envsubst < ${path.module}/inventory_template.ini > ${path.module}/inventory.ini'"
-  }
-
-  depends_on = [
-    local_file.update_inventory_script
   ]
 }

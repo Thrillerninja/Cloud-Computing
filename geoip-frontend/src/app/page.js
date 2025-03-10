@@ -16,6 +16,13 @@ export default function Home() {
   const { ip, setIp, location, error, isLoading, searchLocation } = useIpLookup(language);
   const [markers, setMarkers] = useState([]);
   const [visitedGeonameIds, setVisitedGeonameIds] = useState(new Set());
+  const [instanceId, setInstanceId] = useState('');
+
+  useEffect(() => {
+    fetch('/instance_id.txt')
+      .then(response => response.text())
+      .then(data => setInstanceId(data.trim()));
+  }, []);
 
   // Update markers based on new location data
   useEffect(() => {
@@ -58,7 +65,7 @@ export default function Home() {
           background: 'var(--color-primary)',
         }}
       >
-        <Typography variant="h3" sx={{ marginBottom: 2, color: 'var(--color-text)' }}>
+        <Typography sx={{ marginBottom: 2, color: 'var(--color-text)', fontSize: '42px' }}>
           IP Location Finder
         </Typography>
 
@@ -85,6 +92,11 @@ export default function Home() {
           </Box>
         </Box>
       </Paper>
+
+      <Box sx={{ mt: 4, color: 'var(--color-text)', textAlign: 'center' }}>        
+        <p>Instance ID: {instanceId}</p>  
+        <Box sx={{fontSize: "10px", color: '#888888'}}>Provided by your favourite load balancer</Box>
+      </Box>
     </Box>
   );
 }

@@ -80,6 +80,12 @@
           MAXMIND_LICENSE_KEY={{ MAXMIND_LICENSE_KEY | default('') }}
         mode: '0600'
 
+    - name: Create file with VM instance ID
+      become: true
+      shell: hostname > /app/geoip-frontend/public/instance_id.txt
+      args:
+        executable: /bin/bash
+
     # Create a systemd service for the app
     - name: Create Next.js app service
       become: true

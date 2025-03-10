@@ -1,4 +1,4 @@
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import { validateIp } from '@/utils/ipValidation';
 import {
   fetchLocationData,
@@ -20,7 +20,7 @@ export default function useIpLookup(language) {
   useEffect(() => {
     // Update location if language changes
     if (location && ip) {
-      searchLocation();
+      searchLocation(ip); // Ensure searchLocation is called with the current IP
     }
   }, [language]);
 
@@ -51,7 +51,7 @@ export default function useIpLookup(language) {
   };
 
   const searchLocation = async (searchIP) => {
-    //Ensure searchIP is a string and not a event object
+    // Ensure searchIP is a string and not an event object
     if (searchIP && typeof searchIP === 'object') {
       searchIP = ip;
       console.log('replace searchIP with ip:', searchIP);
@@ -59,9 +59,8 @@ export default function useIpLookup(language) {
 
     setIsLoading(true);
     setError('');
-    console.log('Searching location for IP:', searchIP
-    );
-    
+    console.log('Searching location for IP:', searchIP);
+
     if (!validateIp(searchIP)) {
       setError('Invalid IP address: ' + searchIP);
       setIsLoading(false);
@@ -70,7 +69,7 @@ export default function useIpLookup(language) {
 
     try {
       const data = await fetchLocationData(searchIP);
-      
+
       if (data && data.length > 0) {
         // Load secondary location data
         console.log('Fetched data');
@@ -82,13 +81,13 @@ export default function useIpLookup(language) {
           ...data[0],
           ...locationData,
         }));
-        
+
         return true;
       } else {
         setError('No data found for this IP address.');
         return false;
       }
-      
+
     } catch (err) {
       console.error('Failed to fetch location data:', err);
       setError(err.message || 'Failed to fetch data.');
@@ -99,13 +98,12 @@ export default function useIpLookup(language) {
   };
 
   const loadSecondaryLocationData = async (geonameId) => {
-    
     try {
       const data = await fetchSecondaryLocationData(
         geonameId,
         language
       );
-      
+
       if (data && data.length > 0) {
         return data[0];
       } else {

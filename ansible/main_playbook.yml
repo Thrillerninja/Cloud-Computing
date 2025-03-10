@@ -1,10 +1,927 @@
----
-- name: DB VM setup
-  ansible.builtin.import_tasks:
-    file: playbook/db_playbook.yml
-- name: Frontend VM setup
-  ansible.builtin.import_tasks:
-    file: playbook/frontend_playbook.yml
-- name: Monitoring VM setup
-  ansible.builtin.import_tasks:
-    file: playbook/monitoring_playbook.yml
+# # Configure PostgreSQL
+# - name: Configure PostgreSQL
+#   hosts: database
+#   vars:
+#     ansible_python_interpreter: /usr/bin/python3
+#   vars_files:
+#     - ./passwords.yml
+#   tasks:
+#     - name: Install PostgreSQL and Python prerequisites
+#       become: true
+#       apt:
+#         update_cache: yes
+#         name:
+#           - postgresql
+#           - postgresql-contrib
+#           - python3-psycopg2
+#           - acl
+#         state: present
+
+#     - name: Ensure PostgreSQL is started and enabled
+#       become: true
+#       service:
+#         name: postgresql
+#         state: started
+#         enabled: yes
+
+#     - name: Create PostgreSQL user
+#       become: true
+#       command: sudo -u postgres psql -c "CREATE USER {{ DB_USER }} WITH PASSWORD '{{ DB_PASSWORD }}' CREATEDB;"
+#       register: create_user_output
+#       failed_when: create_user_output.rc != 0 and "already exists" not in create_user_output.stderr
+#       changed_when: create_user_output.rc == 0
+
+#     - name: Create PostgreSQL database
+#       become: true
+#       command: sudo -u postgres psql -c "CREATE DATABASE {{ DB_NAME }} OWNER {{ DB_USER }};"
+#       register: create_db_output
+#       failed_when: create_db_output.rc != 0 and "already exists" not in create_db_output.stderr
+#       changed_when: create_db_output.rc == 0
+
+#     # Find PostgreSQL configuration files
+#     - name: Find postgresql.conf file
+#       become: true
+#       shell: find /etc/postgresql -name postgresql.conf | head -n 1
+#       register: postgresql_conf_path
+#       changed_when: false
+
+#     - name: Find pg_hba.conf file
+#       become: true
+#       shell: find /etc/postgresql -name pg_hba.conf | head -n 1
+#       register: pg_hba_conf_path
+#       changed_when: false
+
+#     # Modify configuration files directly
+#     - name: Update postgresql.conf for remote connections
+#       become: true
+#       lineinfile:
+#         path: "{{ postgresql_conf_path.stdout }}"
+#         regexp: '^#?listen_addresses\s*=\s*.*$'
+#         line: "listen_addresses = '*'"
+#         state: present
+#       register: postgresql_conf_updated
+
+#     - name: Add entry to pg_hba.conf for remote connections
+#       become: true
+#       lineinfile:
+#         path: "{{ pg_hba_conf_path.stdout }}"
+#         regexp: '^host\s+all\s+all\s+0.0.0.0/0\s+.*$'
+#         line: 'host    all             all             0.0.0.0/0               md5'
+#         state: present
+#       register: pg_hba_conf_updated
+
+#     - name: Restart PostgreSQL if configuration was updated
+#       become: true
+#       service:
+#         name: postgresql
+#         state: restarted
+#       when: postgresql_conf_updated.changed or pg_hba_conf_updated.changed
+
+#     # Create directory for SQL scripts
+#     - name: Create directory for SQL scripts
+#       become: true
+#       file:
+#         path: /tmp/sql
+#         state: directory
+#         mode: '0755'
+
+#     # Download or copy your SQL scripts
+#     - name: Clone repository containing SQL scripts
+#       become: true
+#       git:
+#         repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+#         dest: /tmp/sql-repo
+#         version: main
+
+#     - name: Find SQL files in repository
+#       become: true
+#       find:
+#         paths: /tmp/sql-repo/sql_definitions
+#         patterns: "*.sql"
+#         recurse: yes
+#       register: sql_files
+#       changed_when: false
+
+#     - name: Copy found SQL files to working directory
+#       become: true
+#       copy:
+#         src: "{{ item.path }}"
+#         dest: "/tmp/sql/"
+#         remote_src: yes
+#       loop: "{{ sql_files.files }}"
+#       when: sql_files.matched > 0
+
+#     - name: List SQL files in destination directory
+#       become: true
+#       shell: ls -la /tmp/sql/
+#       register: sql_dir_contents
+#       changed_when: false
+
+#     - name: Display SQL files in destination directory
+#       debug:
+#         var: sql_dir_contents.stdout_lines
+
+#     # Execute SQL scripts
+#     - name: Execute SQL initialization scripts
+#       become: true
+#       command: sudo -u postgres psql -d {{ DB_NAME }} -f /tmp/sql/{{ item }}
+#       with_items:
+#         - init_ip_mapping.sql
+#         - init_locations.sql
+#         - init_networks.sql
+#       register: sql_execution
+#       failed_when: sql_execution.rc != 0 and "already exists" not in sql_execution.stderr
+#       changed_when: sql_execution.rc == 0
+#       ignore_errors: true
+
+#     # Grant privileges
+#     - name: Grant privileges to user on all database objects
+#       become: true
+#       command: sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE {{ DB_NAME }} TO {{ DB_USER }};"
+
+#     - name: Grant privileges on all tables in public schema
+#       become: true
+#       command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {{ DB_USER }};"
+
+#     - name: Grant privileges on all sequences in public schema
+#       become: true
+#       command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {{ DB_USER }};"
+
+#     - name: Grant privileges on all functions in public schema
+#       become: true
+#       command: sudo -u postgres psql -d {{ DB_NAME }} -c "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO {{ DB_USER }};"
+
+
+# # Configure Next.js App
+# - name: Configure Next.js App
+#   hosts: app
+#   vars_files:
+#     - ./passwords.yml
+#   tasks:
+#     - name: Ensure /app directory exists
+#       become: true
+#       file:
+#         path: /app
+#         state: directory
+#         mode: '0755'
+
+#     - name: Clone repository containing Next.js app
+#       become: true
+#       git:
+#         repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+#         dest: /app
+#         version: main
+
+#     - name: Verify package.json exists
+#       stat:
+#         path: /app/geoip-frontend/package.json
+#       register: package_json
+
+#     - name: Fail if package.json is missing
+#       fail:
+#         msg: "The package.json file is missing in /app/geoip-frontend. Ensure the application code is deployed correctly."
+#       when: not package_json.stat.exists
+
+#     - name: Add NodeSource repository for Node.js 18.x
+#       become: true
+#       shell: curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+#       args:
+#         executable: /bin/bash
+
+#     - name: Install Node.js and npm
+#       become: true
+#       apt:
+#         update_cache: yes
+#         name:
+#           - nodejs
+#           - build-essential
+#           - postgresql-client
+#         state: present
+
+#     - name: Install dependencies
+#       become: true
+#       shell: |
+#         cd /app/geoip-frontend
+#         npm install
+#       args:
+#         executable: /bin/bash
+
+#     - name: Kill process using port 3000 if exists
+#       become: true
+#       shell: |
+#         pkill -f "node" || true
+#       args:
+#         executable: /bin/bash
+#       ignore_errors: true
+
+#     - name: Get DB VM private IP
+#       become: true
+#       shell: hostname -I | awk '{print $1}'
+#       register: db_private_ip
+#       delegate_to: "{{ groups['database'][0] }}"      
+
+#     - name: Configure app environment
+#       become: true
+#       copy:
+#         dest: /app/geoip-frontend/.env.local
+#         content: |
+#           DB_USER={{ DB_USER }}
+#           DB_HOST={{ db_private_ip.stdout | trim }}
+#           DB_NAME={{ DB_NAME }}
+#           DB_PASSWORD={{ DB_PASSWORD }}
+#           DB_PORT=5432
+#           MAXMIND_USER_ID={{ MAXMIND_USER_ID | default('') }}
+#           MAXMIND_LICENSE_KEY={{ MAXMIND_LICENSE_KEY | default('') }}
+#         mode: '0600'
+
+#     - name: Create file with VM instance ID (so the app knows it)
+#       become: true
+#       shell: hostname > /app/geoip-frontend/public/instance_id.txt
+#       args:
+#         executable: /bin/bash
+
+#     # Create a systemd service for the app
+#     - name: Create Next.js app service
+#       become: true
+#       copy:
+#         dest: /etc/systemd/system/nextjs-app.service
+#         content: |
+#           [Unit]
+#           Description=Next.js Application
+#           After=network.target
+
+#           [Service]
+#           Type=simple
+#           User=root
+#           WorkingDirectory=/app/geoip-frontend
+#           ExecStart=/usr/bin/npm run dev
+#           Restart=on-failure
+#           Environment=NODE_ENV=production
+#           EnvironmentFile=/app/geoip-frontend/.env.local
+
+#           [Install]
+#           WantedBy=multi-user.target
+#         mode: '0644'
+        
+#     - name: Enable and start Next.js service
+#       become: true
+#       systemd:
+#         name: nextjs-app
+#         enabled: yes
+#         state: restarted
+#         daemon_reload: yes
+
+#     - name: Wait for Next.js app to start
+#       wait_for:
+#         port: 3000
+#         host: 127.0.0.1
+#         delay: 10
+#         timeout: 60
+
+
+# Configure Monitoring (combination of pgAdmin, Prometheus, and Grafana)
+- name: Configure pgadmin, Prometheus, Grafana, and general Monitoring
+  hosts: monitoring
+  vars_files:
+    - ./passwords.yml
+  tasks:
+    - name: Install dependencies
+      become: true
+      apt:
+        update_cache: yes
+        name:
+          - curl
+          - gnupg
+          - apt-transport-https
+          - software-properties-common
+        state: present
+
+    - name: Get DB VM private IP
+      become: true
+      shell: hostname -I | awk '{print $1}'
+      register: db_private_ip
+      delegate_to: "{{ groups['database'][0] }}" 
+
+    - name: Get OS details
+      command: lsb_release -cs
+      register: os_codename
+      changed_when: false
+
+    - name: Add pgAdmin repository key
+      become: true
+      shell: |
+        curl -fsSL https://www.pgadmin.org/static/packages_pgadmin_org.pub | sudo gpg --dearmor -o /usr/share/keyrings/packages-pgadmin-org.gpg
+      args:
+        creates: /usr/share/keyrings/packages-pgadmin-org.gpg
+
+    - name: Add pgAdmin repository
+      become: true
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/packages-pgadmin-org.gpg] https://ftp.postgresql.org/pub/pgadmin/pgadmin4/apt/{{ os_codename.stdout }} pgadmin4 main"
+        state: present
+        filename: pgadmin4
+
+    - name: Update apt cache
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Install pgAdmin4
+      become: true
+      apt:
+        name: pgadmin4-web
+        state: present
+
+    - name: Install Apache2 and required packages
+      become: true
+      apt:
+        name:
+          - apache2
+          - libapache2-mod-wsgi-py3
+          - expect
+        state: present
+
+    - name: Create expects script for pgAdmin setup
+      become: true
+      copy:
+        dest: /tmp/pgadmin_setup.exp
+        mode: 0755
+        content: |
+          #!/usr/bin/expect -f
+          set timeout 60
+          spawn /usr/pgadmin4/bin/setup-web.sh
+          expect "Email address:"
+          send "{{ PGADMIN_EMAIL }}\r"
+          expect "Password:"
+          send "{{ PGADMIN_PASSWORD }}\r"
+          expect "Retype password:"
+          send "{{ PGADMIN_PASSWORD }}\r"
+          expect eof
+
+    - name: Run pgAdmin setup
+      become: true
+      command: /tmp/pgadmin_setup.exp
+      args:
+        creates: /var/lib/pgadmin/pgadmin4.db
+
+    - name: Configure Apache to listen on port 5050
+      become: true
+      copy:
+        dest: /etc/apache2/ports.conf
+        content: |
+          Listen 80
+          Listen 5050
+
+          <IfModule ssl_module>
+            Listen 443
+          </IfModule>
+
+          <IfModule mod_gnutls.c>
+            Listen 443
+          </IfModule>
+        mode: '0644'
+
+    - name: Create pgAdmin VirtualHost config
+      become: true
+      copy:
+        dest: /etc/apache2/sites-available/pgadmin.conf
+        content: |
+          <VirtualHost *:5050>
+              ServerName pgadmin.local
+              WSGIDaemonProcess pgadmin_process processes=1 threads=25 python-home=/usr/pgadmin4/venv
+              WSGIScriptAlias / /usr/pgadmin4/web/pgAdmin4.wsgi
+
+              <Directory /usr/pgadmin4/web/>
+                  WSGIProcessGroup pgadmin_process
+                  WSGIApplicationGroup %{GLOBAL}
+                  Require all granted
+              </Directory>
+          </VirtualHost>
+        mode: '0644'
+      notify: Restart Apache
+
+    - name: Enable pgAdmin site
+      become: true
+      command: a2ensite pgadmin.conf
+      register: enable_site
+      changed_when: "'Enabling site pgadmin' in enable_site.stdout"
+      notify: Restart Apache
+
+    - name: Check Apache config
+      become: true
+      command: apache2ctl configtest
+      register: apache_config_test
+      changed_when: false
+      failed_when: apache_config_test.rc != 0
+
+    - name: Ensure pgadmin directory exists
+      become: true
+      file:
+        path: /var/lib/pgadmin/pgadmin4
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0750'
+
+    - name: Create pgAdmin server connection config
+      become: true
+      copy:
+        dest: /var/lib/pgadmin/pgadmin4/servers.json
+        owner: www-data
+        group: www-data
+        mode: '0600'
+        content: |
+          {
+            "Servers": {
+              "1": {
+                "Name": "PostgreSQL Database",
+                "Group": "Servers",
+                "Host": "{{ db_private_ip.stdout | trim }}",
+                "Port": 5432,
+                "MaintenanceDB": "postgres",
+                "Username": "{{ DB_USER }}",
+                "SSLMode": "prefer",
+                "Comment": "Database server"
+              }
+            }
+          }
+      notify: Restart Apache
+
+    - name: Enable required Apache modules
+      become: true
+      apache2_module:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - wsgi
+        - headers
+      notify: Restart Apache
+
+    - name: Enable pgAdmin site
+      become: true
+      command: a2ensite pgadmin.conf
+      register: enable_site
+      changed_when: "'Enabling site pgadmin' in enable_site.stdout"
+      notify: Restart Apache
+
+    - name: Check Apache config
+      become: true
+      command: apache2ctl configtest
+      register: apache_config_test
+      changed_when: false
+      failed_when: apache_config_test.rc != 0
+
+    # PGADMIN finished, starting Prometheus Sql Exporter
+
+    - name: Install PostgreSQL Server Exporter
+      become: true
+      apt:
+        name: prometheus-postgres-exporter
+        state: present
+
+    - name: Configure PostgreSQL Server Exporter
+      become: true
+      copy:
+        dest: /etc/default/prometheus-postgres-exporter
+        content: |
+          DATA_SOURCE_NAME="postgresql://{{ DB_USER }}:{{ DB_PASSWORD }}@{{ db_private_ip.stdout | trim }}:5432/{{ DB_NAME }}?sslmode=disable"
+        mode: '0644'
+
+    - name: Update PostgreSQL Server Exporter service to listen on all interfaces
+      become: true
+      lineinfile:
+        path: /lib/systemd/system/prometheus-postgres-exporter.service
+        regexp: '^ExecStart='
+        line: 'ExecStart=/usr/bin/prometheus-postgres-exporter --web.listen-address="0.0.0.0:9187"'
+        state: present
+
+    - name: Reload systemd daemon
+      become: true
+      command: systemctl daemon-reload
+
+    - name: Restart PostgreSQL Server Exporter service
+      become: true
+      systemd:
+        name: prometheus-postgres-exporter
+        state: restarted
+
+    - name: Wait for PostgreSQL Server Exporter to start
+      wait_for:
+        port: 9187
+        host: 0.0.0.0
+        delay: 10
+        timeout: 60
+
+    - name: Ensure firewall allows access to PostgreSQL Server Exporter
+      become: true
+      ufw:
+        rule: allow
+        port: 9187
+        proto: tcp
+
+    - name: Reload firewall
+      become: true
+      command: ufw reload
+
+    - name: Get app VM private IPs
+      set_fact:
+        app_vm_ips: "{{ groups['app'] | map('extract', hostvars, ['ansible_host']) | list }}"
+
+    - name: Get public IPs of services
+      set_fact:
+        db_public_ip: "{{ hostvars[groups['database'][0]]['ansible_host'] }}"
+        app_public_ips: "{{ groups['app'] | map('extract', hostvars, ['ansible_host']) | list }}"
+        pgadmin_public_ip: "{{ hostvars[groups['monitoring'][0]]['ansible_host'] }}"
+        loadbalancer_public_ip: "{{ hostvars[groups['loadbalancer'][0]]['ansible_host'] }}"
+        grafana_public_ip: "{{ hostvars[groups['monitoring'][0]]['ansible_host'] }}"  # Use monitoring host for Grafana
+
+    # Add monitoring with Grafana
+    - name: Install Grafana
+      become: true
+      apt:
+        name: 
+          - apt-transport-https
+          - software-properties-common
+          - wget
+        state: present
+
+    - name: Add Grafana APT key
+      become: true
+      shell: |
+        wget -q -O - https://packages.grafana.com/gpg.key | apt-key add -
+      args:
+        creates: /etc/apt/trusted.gpg.d/grafana.gpg
+
+    - name: Add Grafana APT repository
+      become: true
+      apt_repository:
+        repo: "deb https://packages.grafana.com/oss/deb stable main"
+        state: present
+        filename: grafana
+
+    - name: Update apt cache
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Install Grafana
+      become: true
+      apt:
+        name: grafana
+        state: present
+
+    # Configure
+    - name: Create Grafana provisioning directories
+      become: true
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+      loop:
+        - /etc/grafana/provisioning/datasources
+        - /etc/grafana/provisioning/dashboards
+
+    - name: Configure Prometheus as a Grafana data source
+      become: true
+      copy:
+        dest: /etc/grafana/provisioning/datasources/prometheus.yaml
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://localhost:9090
+              isDefault: true
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: Restart Grafana
+
+    - name: Configure Grafana dashboard provisioning
+      become: true
+      copy:
+        dest: /etc/grafana/provisioning/dashboards/default.yaml
+        content: |
+          apiVersion: 1
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              updateIntervalSeconds: 10
+              options:
+                path: /var/lib/grafana/dashboards
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: Restart Grafana
+
+    - name: Create dashboard directory
+      become: true
+      file:
+        path: /var/lib/grafana/dashboards
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Download PostgreSQL dashboard from Grafana.com
+      become: true
+      get_url:
+        url: https://grafana.com/api/dashboards/9628/revisions/latest/download
+        dest: /tmp/postgres_dashboard.json
+        mode: '0644'
+
+    - name: Install jq for JSON processing
+      become: true
+      apt:
+        name: jq
+        state: present
+
+    - name: Prepare dashboard JSON for import
+      become: true
+      shell: |
+        cat /tmp/postgres_dashboard.json | jq '. + {"inputs":[{"name":"DS_PROMETHEUS","label":"Prometheus","description":"","type":"datasource","pluginId":"prometheus","pluginName":"Prometheus"}],"overwrite":true, "title": "PostgreSQL Overview"}' > /tmp/dashboard_with_inputs.json
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Prepare dashboard for provisioning
+      become: true
+      shell: |
+        cat /tmp/dashboard_with_inputs.json | jq '{dashboard: ., inputs: [{name: "DS_PROMETHEUS", label: "Prometheus", description: "", type: "datasource", pluginId: "prometheus", pluginName: "Prometheus"}], overwrite: true}' > /var/lib/grafana/dashboards/postgres_dashboard.json
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Set ownership of dashboard file
+      become: true
+      file:
+        path: /var/lib/grafana/dashboards/postgres_dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: Restart Grafana
+
+    - name: Enable and start Grafana service
+      become: true
+      systemd:
+        name: grafana-server
+        enabled: yes
+        state: started
+
+    - name: Wait for Grafana to start
+      wait_for:
+        port: 3000
+        host: 127.0.0.1
+        delay: 10
+        timeout: 60
+      
+    # Add monitoring dashboard
+
+    - name: Create simple monitoring dashboard
+      become: true
+      copy:
+        dest: /var/www/html/monitoring.php
+        content: |
+          <?php
+          // Simple dashboard to display status of services
+          $services = [
+            ["name" => "Database", "host" => "{{ db_public_ip }}", "port" => 5432],
+            ["name" => "App Server 1", "host" => "{{ app_public_ips[0] }}", "port" => 3000],
+            ["name" => "App Server 2", "host" => "{{ app_public_ips[1] }}", "port" => 3000],
+            ["name" => "pgAdmin", "host" => "{{ pgadmin_public_ip }}", "port" => 5050],
+            ["name" => "Load Balancer", "host" => "{{ loadbalancer_public_ip }}", "port" => 80],
+            ["name" => "Grafana", "host" => "{{ grafana_public_ip }}", "port" => 3000]
+          ];
+          ?>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Service Monitoring</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .service { margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+              .online { background-color: #dff0d8; }
+              .offline { background-color: #f2dede; }
+              h1 { color: #333; }
+              h3 { margin: 0; }
+              p { margin: 5px 0; }
+              a { color: #337ab7; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <h1>Service Status</h1>
+            <?php foreach($services as $service): 
+              $fp = @fsockopen($service["host"], $service["port"], $errno, $errstr, 2);
+              $status = $fp ? "online" : "offline";
+              if($fp) { fclose($fp); }
+            ?>
+            <div class="service <?php echo $status; ?>">
+              <h3><?php echo $service["name"]; ?></h3>
+              <p>Status: <?php echo strtoupper($status); ?></p>
+              <p>Host: <a href="http://<?php echo $service["host"]; ?>:<?php echo $service["port"]; ?>" target="_blank"><?php echo $service["host"]; ?>:<?php echo $service["port"]; ?></a></p>
+            </div>
+            <?php endforeach; ?>
+            
+            <h2>Grafana Monitoring</h2>
+            <iframe src="http://<?php echo $services[5]['host']; ?>:3000/" width="100%" height="800" frameborder="0"></iframe>
+          </body>
+          </html>
+        mode: '0644'
+
+    - name: Create Apache alias for monitoring page
+      become: true
+      copy:
+        dest: /etc/apache2/conf-available/monitoring-alias.conf
+        content: |
+          Alias "/monitoring" "/var/www/html/monitoring.php"
+        mode: '0644'
+      notify: Restart Apache
+
+    - name: Enable monitoring alias configuration
+      become: true
+      command: a2enconf monitoring-alias.conf
+      register: enable_conf
+      changed_when: "'Enabling conf monitoring-alias' in enable_conf.stdout"
+      notify: Restart Apache
+
+    # Add monitoring with Prometheus
+
+    - name: Install Prometheus
+      become: true
+      apt:
+        name: prometheus
+        state: present
+        update_cache: yes
+
+    - name: Configure Prometheus
+      become: true
+      copy:
+        dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'postgres_exporter'
+              static_configs:
+                - targets: ['localhost:9187']
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+      notify: Restart Prometheus
+
+    - name: Create Prometheus systemd service
+      become: true
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        content: |
+          [Unit]
+          Description=Prometheus
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=prometheus
+          ExecStart=/usr/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.console.templates=/usr/share/prometheus/consoles --web.console.libraries=/usr/share/prometheus/console_libraries
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      become: true
+      command: systemctl daemon-reload
+
+    - name: Enable and start Prometheus service
+      become: true
+      systemd:
+        name: prometheus
+        enabled: yes
+        state: started
+
+    - name: Ensure firewall allows access to Prometheus
+      become: true
+      ufw:
+        rule: allow
+        port: 9090
+        proto: tcp
+
+    - name: Reload firewall
+      become: true
+      command: ufw reload
+
+    - name: Restart Apache
+      become: true
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Create Prometheus user
+      become: true
+      user:
+        name: prometheus
+        shell: /bin/false
+
+    - name: Create Prometheus directories
+      become: true
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Download Prometheus
+      become: true
+      get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.31.1/prometheus-2.31.1.linux-amd64.tar.gz
+        dest: /tmp/prometheus.tar.gz
+
+    - name: Extract Prometheus
+      become: true
+      unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: Copy Prometheus binaries
+      become: true
+      copy:
+        src: /tmp/prometheus-2.31.1.linux-amd64/prometheus
+        dest: /usr/local/bin/prometheus
+        mode: '0755'
+        remote_src: yes
+      notify: Restart Prometheus
+
+    - name: Copy Prometheus config
+      become: true
+      copy:
+        src: /tmp/prometheus-2.31.1.linux-amd64/promtool
+        dest: /usr/local/bin/promtool
+        mode: '0755'
+        remote_src: yes
+      notify: Restart Prometheus
+
+    - name: Reload systemd daemon
+      become: true
+      command: systemctl daemon-reload
+
+    - name: Enable and start Prometheus service
+      become: true
+      systemd:
+        name: prometheus
+        enabled: yes
+        state: started
+
+    - name: Ensure firewall allows access to Prometheus
+      become: true
+      ufw:
+        rule: allow
+        port: 9090
+        proto: tcp
+
+    - name: Reload firewall
+      become: true
+      command: ufw reload
+
+    - name: Restart Apache
+      become: true
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Restart Prometheus
+      become: true
+      service:
+        name: prometheus
+        state: restarted
+
+  handlers:
+    - name: Restart Apache
+      become: true
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Restart Grafana
+      become: true
+      service:
+        name: grafana-server
+        state: restarted
+
+    - name: Restart Prometheus
+      become: true
+      service:
+        name: prometheus
+        state: restarted
