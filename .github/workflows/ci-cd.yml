@@ -64,8 +64,9 @@ jobs:
 
       - name: Delete existing resource group
         run: |
-          az login --service-principal -u "${{ secrets.CLIENT_ID }}" -p "${{ secrets.CLIENT_SECRET }}" --tenant "${{ secrets.TENANT_ID }}"
-          az group delete --name cloud-computing-rg --yes --no-wait
+            az login --service-principal -u "${{ secrets.CLIENT_ID }}" -p "${{ secrets.CLIENT_SECRET }}" --tenant "${{ secrets.TENANT_ID }}"
+            az group delete --name cloud-computing-rg --yes || echo "Resource group does not exist, continuing..."
+            az group wait --deleted --name cloud-computing-rg
 
       - name: Initialize Terraform
         run: terraform init
