@@ -24,3 +24,6 @@
 
 # Ignore Python virtual environment
 /ansible-venv/Lib
+
+# Ignore Key files
+/keys

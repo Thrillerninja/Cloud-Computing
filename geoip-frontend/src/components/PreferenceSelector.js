@@ -37,8 +37,10 @@ const PreferenceSelector = ({ onLanguageChange, selectedLanguage, setTheme, them
           },
         }}
       >
-        <InputLabel>Language</InputLabel>
+        <InputLabel id="language-label">Language</InputLabel>
         <Select
+          labelId="language-label"
+          id="language-select"
           value={selectedLanguage}
           onChange={handleLanguageChange}
           sx={{
@@ -91,8 +93,10 @@ const PreferenceSelector = ({ onLanguageChange, selectedLanguage, setTheme, them
           },
         }}
       >
-        <InputLabel>Theme</InputLabel>
+        <InputLabel id="theme-label">Theme</InputLabel>
         <Select
+          labelId="theme-label"
+          id="theme-select"
           value={theme}
           onChange={handleThemeChange}
           sx={{
