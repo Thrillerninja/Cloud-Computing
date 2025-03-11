@@ -113,6 +113,9 @@ jobs:
       - name: Set Ansible vault password
         run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible_vault_password
 
+      - name: Disable SSH host key checking
+        run: echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+
       - name: Run Ansible playbook
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_password
