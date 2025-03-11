@@ -80,10 +80,6 @@ jobs:
       - name: Output Terraform results
         run: terraform output -json > terraform_output.json
 
-      - name: Generate Ansible inventory
-        run: |
-          jq -r '. | to_entries | .[] | "\(.key) ansible_host=\(.value.value)"' terraform_output.json > ansible/inventory.ini
-
       - name: Upload inventory file
         uses: actions/upload-artifact@v4
         with:
