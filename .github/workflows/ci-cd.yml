@@ -85,7 +85,7 @@ jobs:
           jq -r '. | to_entries | .[] | "\(.key) ansible_host=\(.value.value)"' terraform_output.json > ansible/inventory.ini
 
       - name: Upload inventory file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: inventory
           path: ansible/inventory.ini
@@ -101,7 +101,7 @@ jobs:
         run: rm -f ansible/inventory.ini
 
       - name: Download inventory file
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: inventory
           path: ansible
@@ -132,7 +132,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Download inventory file
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: inventory
           path: ansible
