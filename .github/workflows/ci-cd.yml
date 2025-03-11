@@ -77,12 +77,34 @@ jobs:
       - name: Apply Terraform (second run)
         run: terraform apply -auto-approve
 
+      - name: Output Terraform results
+        run: terraform output -json > terraform_output.json
+
+      - name: Generate Ansible inventory
+        run: |
+          jq -r '. | to_entries | .[] | "\(.key) ansible_host=\(.value.value)"' terraform_output.json > ansible/inventory.ini
+
+      - name: Upload inventory file
+        uses: actions/upload-artifact@v2
+        with:
+          name: inventory
+          path: ansible/inventory.ini
+
   ansible-deploy:
     runs-on: ubuntu-latest
     needs: terraform-apply
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Delete existing inventory file
+        run: rm -f ansible/inventory.ini
+
+      - name: Download inventory file
+        uses: actions/download-artifact@v2
+        with:
+          name: inventory
+          path: ansible
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -109,16 +131,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Check if webpages are reachable
+      - name: Download inventory file
+        uses: actions/download-artifact@v2
+        with:
+          name: inventory
+          path: ansible
+
+      - name: Extract IPs from inventory
         run: |
+          cd ansible
+          db_public_ip=$(grep 'db ansible_host' inventory.ini | cut -d '=' -f2 | tr -d ' ')
+          pgadmin_public_ip=$(grep 'monitoring ansible_host' inventory.ini | cut -d '=' -f2 | tr -d ' ')
+          loadbalancer_public_ip=$(grep 'loadbalancer ansible_host' inventory.ini | cut -d '=' -f2 | tr -d ' ')
+
           urls=(
-            "http://<db_public_ip>:5432"
-            "http://<app_public_ip_1>:3000"
-            "http://<app_public_ip_2>:3000"
-            "http://<pgadmin_public_ip>:5050"
-            "http://<loadbalancer_public_ip>:80"
-            "http://<grafana_public_ip>:3000"
+            "http://$db_public_ip:5432"
+            "http://$pgadmin_public_ip:5050"
+            "http://$loadbalancer_public_ip:80"
+            "http://$loadbalancer_public_ip:3000"
           )
+
           for url in "${urls[@]}"; do
             if ! curl -s --head --request GET "$url" | grep "200 OK" > /dev/null; then
               echo "Error: $url is not reachable"
