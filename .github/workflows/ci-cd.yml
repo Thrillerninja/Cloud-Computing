@@ -93,12 +93,14 @@ jobs:
         run: pip install ansible
 
       - name: Set Ansible vault password
-        run: echo "ANSIBLE_VAULT_PASSWORD=${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .env
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible_vault_password
 
       - name: Run Ansible playbook
         env:
-          ANSIBLE_VAULT_PASSWORD_FILE: .env
-        run: ansible-playbook ansible/main_playbook.yml -i ansible/inventory --vault-password-file .env
+          ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_password
+        run: |
+          cd ansible
+          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password
 
   check-webpages:
     runs-on: ubuntu-latest
