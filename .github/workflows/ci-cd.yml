@@ -86,8 +86,13 @@ jobs:
       - name: Install Ansible
         run: pip install ansible
 
+      - name: Set Ansible vault password
+        run: echo "ANSIBLE_VAULT_PASSWORD=${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .env
+
       - name: Run Ansible playbook
-        run: ansible-playbook ansible/main_playbook.yml -i ansible/inventory
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: .env
+        run: ansible-playbook ansible/main_playbook.yml -i ansible/inventory --vault-password-file .env
 
   check-webpages:
     runs-on: ubuntu-latest
