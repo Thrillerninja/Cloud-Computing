@@ -62,11 +62,11 @@ jobs:
           }
           EOF
 
-      - name: Import existing resource group
-        run: terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.SUBSCRIPTION_ID }}/resourceGroups/cloud-computing-rg
-
       - name: Initialize Terraform
         run: terraform init
+
+      - name: Import existing resource group
+        run: terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.SUBSCRIPTION_ID }}/resourceGroups/cloud-computing-rg
 
       - name: Apply Terraform (first run)
         run: terraform apply -auto-approve
