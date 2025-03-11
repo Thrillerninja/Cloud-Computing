@@ -39,6 +39,9 @@ jobs:
         with:
           terraform_version: 1.0.0
 
+      - name: Create keys directory
+        run: mkdir -p keys
+
       - name: Create keys.tf file
         run: |
           cat <<EOF > keys/keys.tf
