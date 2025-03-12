@@ -117,8 +117,6 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-      - name: Debug SSH Key Permissions
-        run: ls -l ~/.ssh/ssh_key
   
       - name: Add SSH key
         run: |
