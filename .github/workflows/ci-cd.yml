@@ -117,8 +117,6 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-      - name: Debug SSH Key Permissions
-        run: ls -l ~/.ssh/ssh_key
   
       - name: Add SSH key
         run: |
@@ -144,14 +142,7 @@ jobs:
           # Run Ansible with the key in the expected location
           cd ansible
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key ../.ssh/ssh_key -vvvv
-
-      # - name: Run Ansible playbook
-      #   env:
-      #     ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_password
-      #   run: |
-      #     cd ansible
-      #     ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password
+          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key ../.ssh/ssh_key -vv
 
   check-webpages:
     runs-on: ubuntu-latest
