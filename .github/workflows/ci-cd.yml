@@ -125,10 +125,10 @@ jobs:
           chmod 600 ~/.ssh/ssh_key
           chmod 700 ~/.ssh
           eval $(ssh-agent -s)
-          ssh-add ~/.ssh/ssh_key      
+          ssh-add ~/.ssh/ssh_key
+
       - name: Debug SSH Key Permissions
         run: ls -l ~/.ssh/ssh_key
-
 
       - name: Run Ansible playbook
         env:
@@ -136,7 +136,8 @@ jobs:
         run: |
           cd ansible
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key ~/.ssh/ssh_key -vvvv
+          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key /home/runner/.ssh/ssh_key -vvvv
+
   
 
       # - name: Run Ansible playbook
