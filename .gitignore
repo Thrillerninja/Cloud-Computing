@@ -27,3 +27,4 @@
 
 # Ignore Key files
 /keys
+/.ssh
