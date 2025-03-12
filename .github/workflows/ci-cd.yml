@@ -120,15 +120,19 @@ jobs:
 
       - name: Add SSH key
         run: |
+          mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
           chmod 600 ~/.ssh/ssh_key
+          chmod 700 ~/.ssh
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/ssh_key
 
       - name: Run Ansible playbook
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_password
         run: |
           cd ansible
-          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password
 
   check-webpages:
     runs-on: ubuntu-latest
