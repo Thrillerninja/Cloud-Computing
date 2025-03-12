@@ -134,11 +134,15 @@ jobs:
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible_vault_password
         run: |
+          # Copy SSH key to where Ansible is looking for it (relative to ansible directory)
+          mkdir -p .ssh
+          cp /home/runner/.ssh/ssh_key .ssh/
+          chmod 600 .ssh/ssh_key
+          
+          # Run Ansible with the key in the expected location
           cd ansible
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key /home/runner/.ssh/ssh_key -vvvv
-
-  
+          ansible-playbook main_playbook.yml -i inventory.ini --vault-password-file ~/.ansible_vault_password --private-key ../.ssh/ssh_key -vvvv
 
       # - name: Run Ansible playbook
       #   env:
