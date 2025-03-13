@@ -157,7 +157,7 @@ jobs:
           name: inventory
           path: ansible
 
-      - name: Extract IPs from inventory
+      - name: Extract IPs from inventory and check services
         run: |
           cd ansible
           db_public_ip=$(grep 'db ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
@@ -171,16 +171,19 @@ jobs:
             exit 1
           fi
           
-          # Check HTTP services
+          # Check HTTP services - more flexible matching for HTTP status codes
           http_urls=(
             "http://$pgadmin_public_ip:5050"
             "http://$loadbalancer_public_ip:80"
+            "http://$loadbalancer_public_ip:3000"
           )
-  
+
           for url in "${http_urls[@]}"; do
             echo "Checking $url..."
             response=$(curl -s --head --request GET "$url")
-            if echo "$response" | grep -q "HTTP/1.1 200 OK\|HTTP/1.1 302 Found"; then
+            
+            # Use grep with case-insensitive matching (-i) and match HTTP status codes
+            if echo "$response" | grep -i -E "HTTP/[0-9.]+ (200|302)"; then
               echo "$url is responding"
             else
               echo "Error: $url is not reachable"
@@ -191,5 +194,3 @@ jobs:
           done
           
           echo "All service checks passed successfully!"
-          
-          
