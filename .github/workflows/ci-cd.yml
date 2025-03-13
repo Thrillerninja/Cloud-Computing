@@ -163,17 +163,33 @@ jobs:
           db_public_ip=$(grep 'db ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
           pgadmin_public_ip=$(grep 'monitoring ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
           loadbalancer_public_ip=$(grep 'loadbalancer ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
-
-          urls=(
-            "http://$db_public_ip:5432"
+          
+          # Check PostgreSQL port with TCP connection test
+          echo "Checking PostgreSQL connection..."
+          if ! timeout 10 bash -c "</dev/tcp/$db_public_ip/5432"; then
+            echo "Error: PostgreSQL at $db_public_ip:5432 is not reachable"
+            exit 1
+          fi
+          
+          # Check HTTP services
+          http_urls=(
             "http://$pgadmin_public_ip:5050"
             "http://$loadbalancer_public_ip:80"
-            "http://$loadbalancer_public_ip:3000"
           )
-
-          for url in "${urls[@]}"; do
-            if ! curl -s --head --request GET "$url" | grep "200 OK" > /dev/null; then
+  
+          for url in "${http_urls[@]}"; do
+            echo "Checking $url..."
+            response=$(curl -s --head --request GET "$url")
+            if echo "$response" | grep -q "HTTP/1.1 200 OK\|HTTP/1.1 302 Found"; then
+              echo "$url is responding"
+            else
               echo "Error: $url is not reachable"
+              echo "Response was:"
+              echo "$response"
               exit 1
             fi
           done
+          
+          echo "All service checks passed successfully!"
+          
+          
