@@ -160,10 +160,9 @@ jobs:
       - name: Extract IPs from inventory
         run: |
           cd ansible
-          db_public_ip=$(grep 'db ansible_host' inventory.ini | cut -d '=' -f2 | awk '{print $1}')
-          pgadmin_public_ip=$(grep 'monitoring ansible_host' inventory.ini | cut -d '=' -f2 | awk '{print $1}')
-          loadbalancer_public_ip=$(grep 'loadbalancer ansible_host' inventory.ini | cut -d '=' -f2 | awk '{print $1}')
-
+          db_public_ip=$(grep 'db ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
+          pgadmin_public_ip=$(grep 'monitoring ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
+          loadbalancer_public_ip=$(grep 'loadbalancer ansible_host' inventory.ini | cut -d '=' -f2 | cut -d 'a' -f1 | tr -d ' ')
 
           urls=(
             "http://$db_public_ip:5432"

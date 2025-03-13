@@ -661,15 +661,24 @@
     - name: Prepare dashboard for provisioning
       become: true
       shell: |
-        cat /tmp/postgres_dashboard.json | jq '{
-          "dashboard": (. + {
-            "id": null,
-            "title": "PostgreSQL Overview",
-            "uid": null
-          }),
-          "folderId": 0,
-          "overwrite": true
-        }' > /var/lib/grafana/dashboards/postgres_dashboard.json
+        cat /tmp/postgres_dashboard.json | jq '
+        # Add title and set required fields
+        . + {
+          "title": "PostgreSQL Overview",
+          "id": null,
+          "uid": null
+        } |
+        # Replace variable references with actual Prometheus data source
+        (. | 
+          del(.__inputs) | 
+          del(.__requires) | 
+          walk(if type == "object" and .datasource == "${DS_PROMETHEUS}" then 
+              .datasource = "Prometheus" 
+            else 
+              . 
+            end
+          )
+        )' > /var/lib/grafana/dashboards/postgres_dashboard.json
       args:
         executable: /bin/bash
       changed_when: true
