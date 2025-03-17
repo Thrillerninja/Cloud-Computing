@@ -60,6 +60,18 @@ jobs:
           output "tenant_id" {
             value = "${{ secrets.TENANT_ID }}"
           }
+
+          output "administrator_login" {
+            value = "${{ secrets.DB_USER }}"
+          }
+
+          output "administrator_password" {
+            value = "${{ secrets.DB_PASSWORD }}"
+          }
+
+          output "database_name" {
+            value = "${{ secrets.DB_NAME }}"
+          }
           EOF
 
       - name: Delete existing resource group

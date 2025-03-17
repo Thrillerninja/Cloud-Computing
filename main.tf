@@ -48,19 +48,6 @@ resource "azurerm_subnet" "subnet" {
 }
 
 # Create network interfaces for each service
-resource "azurerm_network_interface" "db_nic" {
-  name                = "db-nic"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.db_pip.id
-  }
-}
-
 # Create multiple NICs for app VMs
 resource "azurerm_network_interface" "app_nic" {
   count               = 2
@@ -89,14 +76,6 @@ resource "azurerm_network_interface" "monitoring_nic" {
 }
 
 # Allocate public IP addresses for each service
-resource "azurerm_public_ip" "db_pip" {
-  name                = "db-pip"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
-  sku                 = "Basic"
-}
-
 # Create public IP for load balancer
 resource "azurerm_public_ip" "lb_pip" {
   name                = "lb-pip"
@@ -199,11 +178,6 @@ resource "azurerm_network_security_rule" "allow_ports" {
 }
 
 # Associate NSG with network interfaces
-resource "azurerm_network_interface_security_group_association" "db_nic_nsg" {
-  network_interface_id      = azurerm_network_interface.db_nic.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
-
 resource "azurerm_network_interface_security_group_association" "app_nic_nsg" {
   count                     = 2
   network_interface_id      = azurerm_network_interface.app_nic[count.index].id
@@ -216,32 +190,25 @@ resource "azurerm_network_interface_security_group_association" "monitoring_nic_
 }
 
 # Create virtual machines for each service
-resource "azurerm_linux_virtual_machine" "db_vm" {
-  name                = "db-vm"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  size                = "Standard_DS1_v2"
-  admin_username      = "adminuser"
-  network_interface_ids = [
-    azurerm_network_interface.db_nic.id,
-  ]
+# Add PostgreSQL Flexible Server (low-cost option)
+resource "azurerm_postgresql_flexible_server" "db" {
+  name                   = "postgres-flexible-server"
+  resource_group_name    = azurerm_resource_group.rg.name
+  location               = azurerm_resource_group.rg.location
+  version                = "14"
+  administrator_login    = module.keys.administrator_login
+  administrator_password = module.keys.administrator_password
 
-  admin_ssh_key {
-    username   = "adminuser"
-    public_key = file("${path.module}/.ssh/ssh_key.pub")
-  }
+  storage_mb = 32768  # Minimum size (32GB)
+  
+  sku_name   = "B_Standard_B1ms"  # Burstable tier - cheapest option
+  
+  backup_retention_days        = 7
+  geo_redundant_backup_enabled = false
 
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
-    version   = "latest"
-  }
+  # Allow all Azure services to access this server (you may want to restrict this in production)
+  delegated_subnet_id    = azurerm_subnet.subnet.id
+  private_dns_zone_id    = azurerm_private_dns_zone.db.id
 }
 
 # Create multiple app VMs
@@ -302,10 +269,47 @@ resource "azurerm_linux_virtual_machine" "monitoring_vm" {
   }
 }
 
+# Create a private DNS zone for the database
+resource "azurerm_private_dns_zone" "db" {
+  name                = "postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Link the DNS zone to your virtual network
+resource "azurerm_private_dns_zone_virtual_network_link" "db" {
+  name                  = "postgreslink"
+  private_dns_zone_name = azurerm_private_dns_zone.db.name
+  resource_group_name   = azurerm_resource_group.rg.name
+  virtual_network_id    = azurerm_virtual_network.vnet.id
+}
+
+# Create a database
+resource "azurerm_postgresql_flexible_server_database" "db" {
+  name      = module.keys.database_name
+  server_id = azurerm_postgresql_flexible_server.db.id
+  charset   = "UTF8"
+  collation = "en_US.utf8"
+}
+
+# Allow access from Azure services
+resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
+  name             = "allow-azure-services"
+  server_id        = azurerm_postgresql_flexible_server.db.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
+
 # Output public IP addresses of the services
-output "db_public_ip" {
-  value       = azurerm_public_ip.db_pip.ip_address   # No public IP address for the database -> Safer configuration  
-  depends_on  = [azurerm_public_ip.db_pip]            # Also, the student version has a max of 3 pips
+output "postgresql_flexible_server_fqdn" {
+  value = azurerm_postgresql_flexible_server.db.fqdn
+}
+
+output "postgresql_flexible_server_database_name" {
+  value = azurerm_postgresql_flexible_server_database.db.name
+}
+
+output "postgresql_admin_username" {
+  value = azurerm_postgresql_flexible_server.db.administrator_login
 }
 
 output "monitoring_public_ip" {
@@ -334,7 +338,7 @@ resource "local_file" "update_inventory_script" {
   filename = "${path.module}/ansible/inventory.ini"
   content = <<-EOT
 [database]
-db ansible_host=${azurerm_public_ip.db_pip.ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
+db ansible_host=${azurerm_postgresql_flexible_server.db.fqdn} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
 
 [app]
 app-0 ansible_host=${azurerm_network_interface.app_nic[0].private_ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -i ../.ssh/ssh_key -o StrictHostKeyChecking=no adminuser@${azurerm_public_ip.db_pip.ip_address}"'
@@ -348,9 +352,8 @@ loadbalancer ansible_host=${azurerm_public_ip.lb_pip.ip_address} ansible_user=ad
 EOT
 
   depends_on = [
-    azurerm_public_ip.db_pip,
+    azurerm_postgresql_flexible_server.db,
     azurerm_public_ip.monitoring_pip,
     azurerm_public_ip.lb_pip,
     azurerm_linux_virtual_machine.app_vm
   ]
-}
