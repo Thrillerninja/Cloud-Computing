@@ -175,7 +175,6 @@ jobs:
           http_urls=(
             "http://$pgadmin_public_ip:5050"
             "http://$loadbalancer_public_ip:80"
-            "http://$loadbalancer_public_ip:3000"
           )
 
           for url in "${http_urls[@]}"; do
