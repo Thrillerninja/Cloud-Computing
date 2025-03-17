@@ -11,11 +11,7 @@ Eine Web-App, die auf Azure-Cloud läuft und einen SaaS und einen PaaS Service n
     Konfiguration der App soll ebenfalls über Ansible erfolgen, vorzugsweise über
     Umgebungsvariablen.
 
-Bonus Punkte:
+Bonus Aufgaben:
 - Tests für die Web-App
 - Aufbau einer CI/CD Pipeline
 - Load balancing
-
-
-## Ansible Passwords
-Vault Master Password: `vaultpw`
