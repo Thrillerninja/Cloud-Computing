@@ -1,3 +1,58 @@
+- name: Initialize PostgreSQL Tables
+  hosts: database
+  vars_files:
+    - ./passwords.yml
+  tasks:
+    # Ensure the SQL scripts directory exists
+    - name: Create directory for SQL scripts
+      become: true
+      file:
+        path: /tmp/sql
+        state: directory
+        mode: '0755'
+
+    # Clone the repository containing SQL scripts
+    - name: Clone repository containing SQL scripts
+      become: true
+      git:
+        repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+        dest: /tmp/sql-repo
+        version: main
+        force: yes
+
+    # Find SQL files in the repository
+    - name: Find SQL files in repository
+      become: true
+      find:
+        paths: /tmp/sql-repo/sql_definitions
+        patterns: "*.sql"
+        recurse: yes
+      register: sql_files
+      changed_when: false
+
+    # Copy found SQL files to the working directory
+    - name: Copy found SQL files to working directory
+      become: true
+      copy:
+        src: "{{ item.path }}"
+        dest: "/tmp/sql/"
+        remote_src: yes
+      loop: "{{ sql_files.files }}"
+      when: sql_files.matched > 0
+
+    # Execute SQL scripts to initialize tables
+    - name: Execute SQL initialization scripts
+      become: true
+      command: sudo -u postgres psql -d {{ DB_NAME }} -f /tmp/sql/{{ item }}
+      with_items:
+        - init_ip_mapping.sql
+        - init_locations.sql
+        - init_networks.sql
+      register: sql_execution
+      failed_when: sql_execution.rc != 0 and "already exists" not in sql_execution.stderr
+      changed_when: sql_execution.rc == 0
+      ignore_errors: true
+
 # Configure Next.js App
 - name: Configure Next.js App
   hosts: app
@@ -85,7 +140,6 @@
       become: true
       shell: |
         cd /app/geoip-frontend
-        rm .babelrc -f
         npm run build
       args:
         executable: /bin/bash
