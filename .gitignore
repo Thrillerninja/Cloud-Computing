@@ -26,5 +26,5 @@
 /ansible-venv/Lib
 
 # Ignore Key files
-/keys
+/terraform/keys
 /.ssh

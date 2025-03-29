@@ -6,6 +6,9 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: String(process.env.DB_PASSWORD), // Ensure password is a string
   port: Number(process.env.DB_PORT), // Ensure port is a number
+  ssl: {
+    rejectUnauthorized: false, // Use this for Azure PostgreSQL Flexible Server
+  },
 });
 
 export async function POST(req) {
