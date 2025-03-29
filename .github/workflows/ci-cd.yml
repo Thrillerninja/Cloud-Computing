@@ -106,7 +106,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: inventory
-          path: terraform/ansible/inventory.ini
+          path: ansible/inventory.ini
 
   ansible-deploy:
     runs-on: ubuntu-latest
