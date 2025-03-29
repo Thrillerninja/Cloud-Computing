@@ -40,7 +40,9 @@ jobs:
           terraform_version: 1.0.0
 
       - name: Create keys directory
-        run: mkdir -p keys
+        run: |
+          cd terraform
+          mkdir -p keys
 
       - name: Create keys.tf file
         run: |
