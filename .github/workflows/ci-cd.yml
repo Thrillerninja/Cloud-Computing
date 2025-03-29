@@ -92,10 +92,10 @@ jobs:
           cd terraform
           terraform apply -auto-approve
 
-      - name: Apply Terraform (second run)
-        run: |
-          cd terraform
-          terraform apply -auto-approve
+      # - name: Apply Terraform (second run)
+      #   run: |
+      #     cd terraform
+      #     terraform apply -auto-approve
 
       - name: Output Terraform results
         run: |
