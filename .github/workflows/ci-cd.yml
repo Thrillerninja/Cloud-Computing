@@ -41,12 +41,11 @@ jobs:
 
       - name: Create keys directory
         run: |
-          cd terraform
-          mkdir -p keys
+          mkdir -p terraform/keys
 
       - name: Create keys.tf file
         run: |
-          cat <<EOF > keys/keys.tf
+          cat <<EOF > terraform/keys/keys.tf
           output "subscription_id" {
             value = "${{ secrets.SUBSCRIPTION_ID }}"
           }
@@ -78,27 +77,36 @@ jobs:
 
       - name: Delete existing resource group
         run: |
-            az login --service-principal -u "${{ secrets.CLIENT_ID }}" -p "${{ secrets.CLIENT_SECRET }}" --tenant "${{ secrets.TENANT_ID }}"
-            az group delete --name cloud-computing-rg --yes || echo "Resource group does not exist, continuing..."
-            az group wait --deleted --name cloud-computing-rg
+          cd terraform
+          az login --service-principal -u "${{ secrets.CLIENT_ID }}" -p "${{ secrets.CLIENT_SECRET }}" --tenant "${{ secrets.TENANT_ID }}"
+          az group delete --name cloud-computing-rg --yes || echo "Resource group does not exist, continuing..."
+          az group wait --deleted --name cloud-computing-rg
 
       - name: Initialize Terraform
-        run: terraform init
+        run: |
+          cd terraform
+          terraform init
 
       - name: Apply Terraform (first run)
-        run: terraform apply -auto-approve
+        run: |
+          cd terraform
+          terraform apply -auto-approve
 
       - name: Apply Terraform (second run)
-        run: terraform apply -auto-approve
+        run: |
+          cd terraform
+          terraform apply -auto-approve
 
       - name: Output Terraform results
-        run: terraform output -json > terraform_output.json
+        run: |
+          cd terraform
+          terraform output -json > terraform_output.json
 
       - name: Upload inventory file
         uses: actions/upload-artifact@v4
         with:
           name: inventory
-          path: ansible/inventory.ini
+          path: terraform/ansible/inventory.ini
 
   ansible-deploy:
     runs-on: ubuntu-latest
