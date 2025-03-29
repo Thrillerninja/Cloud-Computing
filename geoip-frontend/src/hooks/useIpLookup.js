@@ -57,6 +57,7 @@ export default function useIpLookup(language) {
       console.log('replace searchIP with ip:', searchIP);
     }
 
+    searchIP = searchIP.trim(); // Trim leading/trailing spaces
     setIsLoading(true);
     setError('');
     console.log('Searching location for IP:', searchIP);

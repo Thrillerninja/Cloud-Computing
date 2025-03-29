@@ -1,5 +1,3 @@
-
-
 export const fetchLocationData = async (ip) => {
     const encodedIp = encodeURIComponent(ip);
     const databaseResponse = await fetch(`/api/network/${encodedIp}`);

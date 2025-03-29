@@ -105,7 +105,7 @@ resource "local_file" "update_inventory_script" {
   filename = "${path.module}/../ansible/inventory.ini"
   content = <<-EOT
 [database]
-db ansible_host=${azurerm_postgresql_flexible_server.db.fqdn} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key
+db ansible_host=${azurerm_postgresql_flexible_server.db.fqdn} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -i ../.ssh/ssh_key adminuser@${azurerm_public_ip.monitoring_pip.ip_address}"'
 
 [app]
 app-0 ansible_host=${azurerm_network_interface.app_nic[0].private_ip_address} ansible_user=adminuser ansible_ssh_private_key_file=../.ssh/ssh_key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -i ../.ssh/ssh_key -o StrictHostKeyChecking=no adminuser@${azurerm_public_ip.monitoring_pip.ip_address}"'
