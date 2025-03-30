@@ -73,7 +73,7 @@ export default function useIpLookup(language) {
 
     if (!validateIp(searchIP)) {
       setError('Invalid IP address: ' + searchIP);
-      updateMetrics('error'); // Update error metric
+      updateMetrics('error', 'validationError'); // Update error metric with category
       setIsLoading(false);
       return false;
     }
