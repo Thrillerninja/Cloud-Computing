@@ -186,6 +186,8 @@
           - apt-transport-https
           - software-properties-common
         state: present
+      async: 120
+      poll: 0
 
     - name: Get OS details
       command: lsb_release -cs
@@ -216,6 +218,8 @@
       apt:
         name: pgadmin4-web
         state: present
+      async: 120
+      poll: 0
 
     - name: Install Apache2 and required packages
       become: true
@@ -225,6 +229,8 @@
           - libapache2-mod-wsgi-py3
           - expect
         state: present
+      async: 120
+      poll: 0
 
     - name: Create expects script for pgAdmin setup
       become: true
@@ -243,11 +249,13 @@
           send "{{ PGADMIN_PASSWORD }}\r"
           expect eof
 
-    - name: Run pgAdmin setup
+    - name: Run pgAdmin setup asynchronously
       become: true
       command: /tmp/pgadmin_setup.exp
       args:
         creates: /var/lib/pgadmin/pgadmin4.db
+      async: 300
+      poll: 0
 
     - name: Configure Apache to listen on port 5050
       become: true
@@ -362,6 +370,8 @@
       apt:
         name: prometheus-postgres-exporter
         state: present
+      async: 120
+      poll: 0
 
     - name: Configure PostgreSQL Server Exporter
       become: true
@@ -453,6 +463,8 @@
       apt:
         name: grafana
         state: present
+      async: 120
+      poll: 0
 
     # Configure
     - name: Create Grafana provisioning directories
@@ -500,7 +512,7 @@
               secureJsonData:
                 password: "{{ DB_PASSWORD }}"
               jsonData:
-                sslmode: "disable"
+                sslmode: "require"
         owner: grafana
         group: grafana
         mode: '0644'
@@ -541,6 +553,8 @@
         url: https://grafana.com/api/dashboards/9628/revisions/latest/download
         dest: /tmp/postgres_dashboard.json
         mode: '0644'
+      async: 60
+      poll: 0
 
     - name: Install jq for JSON processing
       become: true
@@ -580,6 +594,14 @@
         owner: grafana
         group: grafana
         mode: '0644'
+
+    - name: Clone repository containing dashboard template
+      become: true
+      git:
+        repo: 'https://github.com/Thrillerninja/Cloud-Computing.git'
+        dest: /app
+        version: main
+        force: yes
 
     - name: Ensure Grafana dashboard provisioning includes manual dashboard
       become: true
@@ -787,6 +809,8 @@
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.31.1/prometheus-2.31.1.linux-amd64.tar.gz
         dest: /tmp/prometheus.tar.gz
+      async: 120
+      poll: 0
 
     - name: Extract Prometheus
       become: true
@@ -794,6 +818,8 @@
         src: /tmp/prometheus.tar.gz
         dest: /tmp
         remote_src: yes
+      async: 120
+      poll: 0
 
     - name: Copy Prometheus binaries
       become: true
