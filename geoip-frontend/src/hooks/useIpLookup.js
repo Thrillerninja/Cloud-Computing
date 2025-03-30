@@ -2,13 +2,6 @@ import { useState, useEffect } from 'react';
 import { validateIp } from '@/utils/ipValidation';
 import { fetchLocationData, fetchSecondaryLocationData } from '@/services/locationService';
 
-let ipSearchCounter, errorCounter, searchDurationHistogram, uniqueIpCounter, uniqueIps;
-
-if (typeof window === 'undefined') {
-  // Import metrics only on the server
-  ({ ipSearchCounter, errorCounter, searchDurationHistogram, uniqueIpCounter, uniqueIps } = require('@/app/api/metrics/route'));
-}
-
 export default function useIpLookup(language) {
   const [ip, setIp] = useState('');
   const [location, setLocation] = useState(null);
@@ -54,6 +47,18 @@ export default function useIpLookup(language) {
     }
   };
 
+  const updateMetrics = async (type, value = null, ip = null) => {
+    try {
+      await fetch('/api/updateMetrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, value, ip }),
+      });
+    } catch (error) {
+      console.error('Failed to update metrics:', error);
+    }
+  };
+
   const searchLocation = async (searchIP) => {
     // Ensure searchIP is a string and not an event object
     if (searchIP && typeof searchIP === 'object') {
@@ -68,23 +73,14 @@ export default function useIpLookup(language) {
 
     if (!validateIp(searchIP)) {
       setError('Invalid IP address: ' + searchIP);
-      if (typeof window === 'undefined') {
-        errorCounter?.inc(); // Increment error counter
-      }
+      updateMetrics('error'); // Update error metric
       setIsLoading(false);
       return false;
     }
 
     const startTime = Date.now(); // Start timing the search
     try {
-      if (typeof window === 'undefined') {
-        ipSearchCounter?.inc(); // Increment IP search counter
-
-        if (!uniqueIps?.has(searchIP)) {
-          uniqueIps.add(searchIP);
-          uniqueIpCounter?.inc(); // Increment unique IP counter
-        }
-      }
+      updateMetrics('ipSearch', null, searchIP); // Update IP search metric
 
       const data = await fetchLocationData(searchIP);
 
@@ -103,23 +99,17 @@ export default function useIpLookup(language) {
         return true;
       } else {
         setError('No data found for this IP address.');
-        if (typeof window === 'undefined') {
-          errorCounter?.inc(); // Increment error counter
-        }
+        updateMetrics('error'); // Update error metric
         return false;
       }
     } catch (err) {
       console.error('Failed to fetch location data:', err);
       setError(err.message || 'Failed to fetch data.');
-      if (typeof window === 'undefined') {
-        errorCounter?.inc(); // Increment error counter
-      }
+      updateMetrics('error'); // Update error metric
       return false;
     } finally {
       const duration = (Date.now() - startTime) / 1000; // Calculate duration in seconds
-      if (typeof window === 'undefined') {
-        searchDurationHistogram?.observe(duration); // Record search duration
-      }
+      updateMetrics('searchDuration', duration); // Update search duration metric
       setIsLoading(false);
     }
   };

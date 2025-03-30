@@ -5,6 +5,7 @@ let sessionStartTime = Date.now(); // Declare globally to ensure accessibility
 
 if (typeof window === 'undefined') {
   try {
+    console.log('Initializing metrics...');
     // Import prom-client only on the server
     client = require('prom-client');
     register = new client.Registry();
@@ -24,6 +25,7 @@ if (typeof window === 'undefined') {
     errorCounter = new client.Counter({
       name: 'ip_search_error_count',
       help: 'Number of errors encountered during IP searches',
+      labelNames: ['category'], // Add label for error categories
     });
 
     searchDurationHistogram = new client.Histogram({
@@ -48,6 +50,7 @@ if (typeof window === 'undefined') {
     register.registerMetric(searchDurationHistogram);
     register.registerMetric(uniqueIpCounter);
     register.registerMetric(activeSessionsGauge);
+    console.log('Metrics initialized successfully');
 
     uniqueIps = new Set();
     activeSessionsGauge.inc(); // Increment active sessions on server start
@@ -58,7 +61,10 @@ if (typeof window === 'undefined') {
 
 export async function GET() {
   if (typeof window !== 'undefined') {
-    return NextResponse.json({ message: 'Metrics are only available on the server' }, { status: 400 });
+    console.error('Client-side request detected. Metrics are server-side only.');
+    return NextResponse.json({ 
+      message: 'Metrics are only available on the server. Client-side requests are not supported.' 
+    }, { status: 400 });
   }
 
   try {
@@ -73,7 +79,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Failed to fetch metrics:', error);
-    return NextResponse.json({ message: 'Failed to fetch metrics', error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      message: 'Failed to fetch metrics', 
+      error: error.message 
+    }, { status: 500 });
   }
 }
 

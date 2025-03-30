@@ -484,6 +484,28 @@
         mode: '0644'
       notify: Restart Grafana
 
+    - name: Configure PostgreSQL as a Grafana data source
+      become: true
+      copy:
+        dest: /etc/grafana/provisioning/datasources/postgresql.yaml
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: grafana-postgresql-datasource
+              type: postgres
+              access: proxy
+              url: "{{ hostvars[groups['database'][0]].ansible_host }}:5432"
+              database: "{{ DB_NAME }}"
+              user: "{{ DB_USER }}"
+              secureJsonData:
+                password: "{{ DB_PASSWORD }}"
+              jsonData:
+                sslmode: "disable"
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: Restart Grafana
+
     - name: Configure Grafana dashboard provisioning
       become: true
       copy:
@@ -555,6 +577,25 @@
       become: true
       file:
         path: /var/lib/grafana/dashboards/postgres_dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Ensure Grafana dashboard provisioning includes manual dashboard
+      become: true
+      copy:
+        dest: /etc/grafana/provisioning/dashboards/manual_dashboard.yaml
+        content: |
+          apiVersion: 1
+          providers:
+            - name: 'manual'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              updateIntervalSeconds: 10
+              options:
+                path: /app/grafana_template/dashboard.json
         owner: grafana
         group: grafana
         mode: '0644'
