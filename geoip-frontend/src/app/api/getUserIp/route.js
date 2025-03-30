@@ -19,6 +19,12 @@ export async function GET(request) {
     const data = await response.json();
     return NextResponse.json({ ip: data.ip });
   } catch (error) {
+    console.error('Error fetching user IP:', error);
+    fetch('/api/updateMetrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'error', category: 'externalServiceError' }),
+    }).catch(console.error);
     return NextResponse.json({ ip: '' }, { status: 500 });
   }
 }

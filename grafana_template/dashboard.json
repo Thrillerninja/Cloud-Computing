@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 3,
   "links": [],
   "panels": [
     {
@@ -80,7 +80,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "ip_search_count",
+          "expr": "sum(ip_search_count)",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "__auto",
@@ -146,7 +146,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "unique_ip_search_count",
+          "expr": "sum(unique_ip_search_count)",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "Unique IPs",
@@ -161,7 +161,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "ip_search_count-unique_ip_search_count",
+          "expr": "sum(ip_search_count-unique_ip_search_count)",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -202,7 +202,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 3,
         "x": 9,
         "y": 0
@@ -230,7 +230,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "active_sessions",
+          "expr": "sum(active_sessions)",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -265,9 +265,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 13,
+        "h": 5,
+        "w": 6,
+        "x": 12,
         "y": 0
       },
       "id": 3,
@@ -296,7 +296,7 @@
           "expr": "session_duration_seconds",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -363,7 +363,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "ip_search_duration_seconds_bucket",
+          "expr": "sum by(le) (ip_search_duration_seconds_bucket)",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "{{le}} s",
@@ -430,7 +430,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "unique_ip_search_count",
+          "expr": "sum(unique_ip_search_count)",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -560,7 +560,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "behfa8rvfpkowd"
+        "uid": "P78DC24F8AA21B398"
       },
       "fieldConfig": {
         "defaults": {
@@ -669,31 +669,17 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "behfa8rvfpkowd"
+            "uid": "P78DC24F8AA21B398"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n\r\n    n.latitude,\r\n\r\n    n.longitude,\r\n\r\n    l.city_name\r\n\r\nFROM \r\n\r\n    geoip_network AS n\r\n\r\nJOIN \r\n\r\n    geoip_location AS l\r\n\r\nON \r\n\r\n    n.geoname_id = l.geoname_id\r\n\r\nWHERE \r\n\r\n    l.city_name IS NOT NULL\r\n\r\n    AND l.locale_code = 'en';",
+          "rawSql": "SELECT n.latitude, n.longitude, l.city_name\r\nFROM geoip_location l\r\nJOIN geoip_network n ON l.geoname_id = n.geoname_id\r\nWHERE l.locale_code = 'en';",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [
-                  {
-                    "name": "latitude",
-                    "type": "functionParameter"
-                  }
-                ],
-                "type": "function"
-              },
-              {
-                "parameters": [
-                  {
-                    "name": "longitude",
-                    "type": "functionParameter"
-                  }
-                ],
+                "parameters": [],
                 "type": "function"
               }
             ],
@@ -706,8 +692,7 @@
               }
             ],
             "limit": 50
-          },
-          "table": "geoip_network"
+          }
         }
       ],
       "title": "Result Locations",
@@ -727,7 +712,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "General Application Overview",
-  "uid": "dehf2onsz2j28b",
-  "version": 9
+  "title": "General Application Overview2",
+  "uid": "dehf2onsz2j28b1",
+  "version": 3
 }

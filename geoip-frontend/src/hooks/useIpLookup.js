@@ -43,6 +43,7 @@ export default function useIpLookup(language) {
     } catch (err) {
       console.error('Failed to fetch user IP:', err);
       setError('Failed to fetch user IP.');
+      updateMetrics('error', null, 'fetchUserIpError').catch(console.error);
       return '';
     }
   };
@@ -73,7 +74,7 @@ export default function useIpLookup(language) {
 
     if (!validateIp(searchIP)) {
       setError('Invalid IP address: ' + searchIP);
-      updateMetrics('error', 'validationError'); // Update error metric with category
+      updateMetrics('error', null, 'validationError').catch(console.error);
       setIsLoading(false);
       return false;
     }
@@ -84,7 +85,7 @@ export default function useIpLookup(language) {
 
       const data = await fetchLocationData(searchIP);
 
-      if (data && data.length > 0) {
+      if (data && data.length > 0 && data[0].geoname_id !== null) {
         // Load secondary location data
         console.log('Fetched data');
         console.log(data);
@@ -99,17 +100,17 @@ export default function useIpLookup(language) {
         return true;
       } else {
         setError('No data found for this IP address.');
-        updateMetrics('error'); // Update error metric
+        updateMetrics('error', null, 'noDataFound').catch(console.error);
         return false;
       }
     } catch (err) {
       console.error('Failed to fetch location data:', err);
       setError(err.message || 'Failed to fetch data.');
-      updateMetrics('error'); // Update error metric
+      updateMetrics('error', null, 'fetchLocationError').catch(console.error);
       return false;
     } finally {
       const duration = (Date.now() - startTime) / 1000; // Calculate duration in seconds
-      updateMetrics('searchDuration', duration); // Update search duration metric
+      updateMetrics('searchDuration', duration).catch(console.error); // Update search duration metric
       setIsLoading(false);
     }
   };
@@ -126,6 +127,7 @@ export default function useIpLookup(language) {
     } catch (err) {
       console.error('Failed to fetch secondary location data:', err);
       setError('Found network, failed to fetch location data.');
+      updateMetrics('error', null, 'fetchSecondaryLocationError').catch(console.error);
     }
   };
 

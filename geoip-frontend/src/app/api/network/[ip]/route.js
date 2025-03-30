@@ -46,11 +46,21 @@ export async function GET(req, { params }) {
       );
 
       if (result.rows.length === 0) {
+        fetch('/api/updateMetrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'error', category: 'noDataFound' }),
+        }).catch(console.error);
         return new Response(
           JSON.stringify({ message: 'No saved data found for this IP address in the database' }),
           { status: 404 }
         );
       } else if (result.rows.length > 1) {
+        fetch('/api/updateMetrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'error', category: 'multipleEntries' }),
+        }).catch(console.error);
         return new Response(
           JSON.stringify({ message: 'Multiple entries found for this IP address in the database' }),
           { status: 500 }
@@ -67,6 +77,11 @@ export async function GET(req, { params }) {
       );
 
       if (networkResult.rows.length === 0) {
+        fetch('/api/updateMetrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'error', category: 'noNetworkData' }),
+        }).catch(console.error);
         return new Response(
           JSON.stringify({ message: 'No saved data found for this IP address in the database' }),
           { status: 404 }
@@ -79,6 +94,11 @@ export async function GET(req, { params }) {
     }
   } catch (err) {
     console.error('Error fetching from database:', err);
+    fetch('/api/updateMetrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'error', category: 'databaseError' }),
+    }).catch(console.error);
     return new Response(
       JSON.stringify({ message: `Failed to fetch data from database: ${err.message}` }),
       { status: 500 }

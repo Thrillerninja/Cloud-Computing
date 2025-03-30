@@ -20,6 +20,11 @@ export async function GET(req, { params }) {
   console.log('Received request to fetch data from the database', { id, lang });
 
   if (!id || !lang) {
+    fetch('/api/updateMetrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'error', category: 'missingParameters' }),
+    }).catch(console.error);
     return NextResponse.json({ message: 'ID and language are required.' }, { status: 400 });
   }
 
@@ -29,12 +34,22 @@ export async function GET(req, { params }) {
     client.release();
 
     if (result.rows.length === 0) {
+      fetch('/api/updateMetrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'error', category: 'noDataFound' }),
+      }).catch(console.error);
       return new Response(JSON.stringify({ message: 'No data found for this ID and language in the database' }), { status: 404 });
     }
 
     return new Response(JSON.stringify(result.rows), { status: 200 });
   } catch (err) {
     console.error('Error fetching from database:', err);
+    fetch('/api/updateMetrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'error', category: 'databaseError' }),
+    }).catch(console.error);
     return new Response(JSON.stringify({ message: `Failed to fetch data from database: ${err.message}` }), { status: 500 });
   }
 }

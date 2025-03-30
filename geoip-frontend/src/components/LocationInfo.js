@@ -10,12 +10,12 @@ const LocationInfo = ({ location, error }) => {
       {location ? (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h5">Location Information</Typography>
-          <Typography>Closest Host: {location.network}</Typography>
-          <Typography>City: {location.city_name}</Typography>
-          <Typography>Region: {location.subdivision_1_name}</Typography>
-          <Typography>Country: {location.country_name}</Typography>
-          <Typography>Latitude: {location.latitude}</Typography>
-          <Typography>Longitude: {location.longitude}</Typography>
+          <Typography>Closest Host: {location.network || 'N/A'}</Typography>
+          <Typography>City: {location.city_name || 'N/A'}</Typography>
+          <Typography>Region: {location.subdivision_1_name || 'N/A'}</Typography>
+          <Typography>Country: {location.country_name || 'N/A'}</Typography>
+          <Typography>Latitude: {location.latitude || 'N/A'}</Typography>
+          <Typography>Longitude: {location.longitude || 'N/A'}</Typography>
         </Box>
       ): (
         <Box sx={{ mt: 2, height: '180px' }}></Box>
