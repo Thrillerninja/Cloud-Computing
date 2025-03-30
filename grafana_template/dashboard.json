@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -323,7 +323,8 @@
                 "color": "green"
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -363,10 +364,14 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
+          "exemplar": false,
           "expr": "sum by(le) (ip_search_duration_seconds_2_bucket)",
+          "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
-          "legendFormat": "{{le}} s",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "{{le}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -712,7 +717,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "General Application Overview2",
+  "title": "General Application Overview",
   "uid": "dehf2onsz2j28b1",
-  "version": 3
+  "version": 1
 }
