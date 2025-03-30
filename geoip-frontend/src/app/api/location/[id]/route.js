@@ -17,6 +17,8 @@ export async function GET(req, { params }) {
   const url = new URL(req.url);
   const lang = url.searchParams.get('lang');
 
+  console.log('Received request to fetch data from the database', { id, lang });
+
   if (!id || !lang) {
     return NextResponse.json({ message: 'ID and language are required.' }, { status: 400 });
   }
