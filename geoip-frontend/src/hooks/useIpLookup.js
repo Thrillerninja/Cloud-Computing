@@ -110,7 +110,15 @@ export default function useIpLookup(language) {
       return false;
     } finally {
       const duration = (Date.now() - startTime) / 1000; // Calculate duration in seconds
-      updateMetrics('searchDuration', duration).catch(console.error); // Update search duration metric
+      try {
+        await fetch('/api/updateMetrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'searchDuration', value: duration }),
+        });
+      } catch (error) {
+        console.error('Failed to update search duration metric:', error);
+      }
       setIsLoading(false);
     }
   };
