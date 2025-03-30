@@ -170,7 +170,7 @@
       changed_when: false
 
 
-# Configure Monitoring (combination of pgAdmin, Prometheus, and Grafana)
+# # Configure Monitoring (combination of pgAdmin, Prometheus, and Grafana)
 - name: Configure pgadmin, Prometheus, Grafana, and general Monitoring
   hosts: monitoring
   vars_files:
@@ -459,8 +459,6 @@
       apt:
         name: grafana
         state: present
-      async: 120
-      poll: 0
 
     # Configure
     - name: Create Grafana provisioning directories
@@ -805,8 +803,6 @@
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.31.1/prometheus-2.31.1.linux-amd64.tar.gz
         dest: /tmp/prometheus.tar.gz
-      async: 120
-      poll: 0
 
     - name: Extract Prometheus
       become: true
@@ -814,8 +810,6 @@
         src: /tmp/prometheus.tar.gz
         dest: /tmp
         remote_src: yes
-      async: 120
-      poll: 0
 
     - name: Copy Prometheus binaries
       become: true

@@ -31,7 +31,7 @@ if (typeof window === 'undefined') {
     searchDurationHistogram = new client.Histogram({
       name: 'ip_search_duration_seconds',
       help: 'Histogram of IP search durations in seconds',
-      buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1], // Adjusted buckets for faster requests
+      buckets: [0.1, 0.5, 1, 2, 5, 10], 
     });
 
     uniqueIpCounter = new client.Counter({
