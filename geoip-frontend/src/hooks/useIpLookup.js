@@ -111,11 +111,7 @@ export default function useIpLookup(language) {
     } finally {
       const duration = (Date.now() - startTime) / 1000; // Calculate duration in seconds
       try {
-        await fetch('/api/updateMetrics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'searchDuration', value: duration }),
-        });
+        updateMetrics('searchDuration', duration); // Pass the duration directly
       } catch (error) {
         console.error('Failed to update search duration metric:', error);
       }

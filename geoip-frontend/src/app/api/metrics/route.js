@@ -29,7 +29,7 @@ if (typeof window === 'undefined') {
     });
 
     searchDurationHistogram = new client.Histogram({
-      name: 'ip_search_duration_seconds',
+      name: 'ip_search_duration_seconds_2',
       help: 'Histogram of IP search durations in seconds',
       buckets: [0.1, 0.5, 1, 2, 5, 10], 
     });

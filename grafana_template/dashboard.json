@@ -363,7 +363,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(le) (ip_search_duration_seconds_bucket)",
+          "expr": "sum by(le) (ip_search_duration_seconds_2_bucket)",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "{{le}} s",

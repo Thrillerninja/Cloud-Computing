@@ -35,6 +35,7 @@ export async function POST(request) {
       errorCounter?.inc({ category }); // Increment error counter with category
     } else if (type === 'searchDuration') {
       searchDurationHistogram?.observe(value); // Record search duration
+      console.log('Search duration recorded:', value);
     } else {
       return NextResponse.json({ 
         message: `Unsupported metric type: ${type}` 
