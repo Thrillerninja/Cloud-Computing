@@ -664,6 +664,13 @@
             - job_name: 'postgres_exporter'
               static_configs:
                 - targets: ['localhost:9187']
+
+            - job_name: 'nextjs-app'
+              static_configs:
+                - targets:
+                    {% for ip in app_vm_ips %}
+                    - '{{ ip }}:3000'
+                    {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'

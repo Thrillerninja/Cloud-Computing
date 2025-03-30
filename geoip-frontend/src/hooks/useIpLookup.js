@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { validateIp } from '@/utils/ipValidation';
-import {
-  fetchLocationData,
-  fetchSecondaryLocationData,
-} from '@/services/locationService';
+import { fetchLocationData, fetchSecondaryLocationData } from '@/services/locationService';
+
+let ipSearchCounter, errorCounter, searchDurationHistogram, uniqueIpCounter, uniqueIps;
+
+if (typeof window === 'undefined') {
+  // Import metrics only on the server
+  ({ ipSearchCounter, errorCounter, searchDurationHistogram, uniqueIpCounter, uniqueIps } = require('@/app/api/metrics/route'));
+}
 
 export default function useIpLookup(language) {
   const [ip, setIp] = useState('');
@@ -64,11 +68,24 @@ export default function useIpLookup(language) {
 
     if (!validateIp(searchIP)) {
       setError('Invalid IP address: ' + searchIP);
+      if (typeof window === 'undefined') {
+        errorCounter?.inc(); // Increment error counter
+      }
       setIsLoading(false);
       return false;
     }
 
+    const startTime = Date.now(); // Start timing the search
     try {
+      if (typeof window === 'undefined') {
+        ipSearchCounter?.inc(); // Increment IP search counter
+
+        if (!uniqueIps?.has(searchIP)) {
+          uniqueIps.add(searchIP);
+          uniqueIpCounter?.inc(); // Increment unique IP counter
+        }
+      }
+
       const data = await fetchLocationData(searchIP);
 
       if (data && data.length > 0) {
@@ -86,24 +103,30 @@ export default function useIpLookup(language) {
         return true;
       } else {
         setError('No data found for this IP address.');
+        if (typeof window === 'undefined') {
+          errorCounter?.inc(); // Increment error counter
+        }
         return false;
       }
-
     } catch (err) {
       console.error('Failed to fetch location data:', err);
       setError(err.message || 'Failed to fetch data.');
+      if (typeof window === 'undefined') {
+        errorCounter?.inc(); // Increment error counter
+      }
       return false;
     } finally {
+      const duration = (Date.now() - startTime) / 1000; // Calculate duration in seconds
+      if (typeof window === 'undefined') {
+        searchDurationHistogram?.observe(duration); // Record search duration
+      }
       setIsLoading(false);
     }
   };
 
   const loadSecondaryLocationData = async (geonameId) => {
     try {
-      const data = await fetchSecondaryLocationData(
-        geonameId,
-        language
-      );
+      const data = await fetchSecondaryLocationData(geonameId, language);
 
       if (data && data.length > 0) {
         return data[0];

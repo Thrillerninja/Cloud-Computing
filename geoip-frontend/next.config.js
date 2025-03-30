@@ -7,6 +7,15 @@ const nextConfig = {
     }
     return config;
   },
+  async redirects() {
+    return [
+      {
+        source: '/metrics',
+        destination: '/api/metrics',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
