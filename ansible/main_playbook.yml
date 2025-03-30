@@ -186,8 +186,6 @@
           - apt-transport-https
           - software-properties-common
         state: present
-      async: 120
-      poll: 0
 
     - name: Get OS details
       command: lsb_release -cs
@@ -218,8 +216,6 @@
       apt:
         name: pgadmin4-web
         state: present
-      async: 120
-      poll: 0
 
     - name: Install Apache2 and required packages
       become: true
