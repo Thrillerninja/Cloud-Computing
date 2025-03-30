@@ -183,7 +183,7 @@ jobs:
           
           # # Check PostgreSQL port with TCP connection test
           # echo "Checking PostgreSQL connection..."
-          # if ! timeout 10 bash -c "</dev/tcp/$db_public_ip/5432"; then    # DB not acessible public so removed
+          # if ! timeout 10 bash -c "</dev/tcp/$db_public_ip/5432"; then    # DB not accessible public so removed
           #   echo "Error: PostgreSQL at $db_public_ip:5432 is not reachable"
           #   exit 1
           # fi
