@@ -119,10 +119,6 @@ jobs:
       - name: Delete existing inventory file
         run: rm -f ansible/inventory.ini
 
-      - name: Create passwords.yml file
-        run: |
-          echo "${{ secrets.ANSIBLE_PASSWORDS_ENCRYPTED }}" > ansible/passwords.yml
-          
       - name: Download inventory file
         uses: actions/download-artifact@v4
         with:
@@ -139,6 +135,13 @@ jobs:
 
       - name: Set Ansible vault password
         run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible_vault_password
+
+      - name: Create encrypted passwords.yml file
+        run: |
+          echo "${{ secrets.ANSIBLE_PASSWORDS_ENCRYPTED }}" > ansible/passwords.yml
+          ls
+          echo "---"
+          ls ansible
 
       - name: Disable SSH host key checking
         run: |
