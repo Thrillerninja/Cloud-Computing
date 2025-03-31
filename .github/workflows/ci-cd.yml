@@ -74,21 +74,13 @@ jobs:
             value = "${{ secrets.DB_NAME }}"
           }
           EOF
-      
-      - name: Disable SSH host key checking
-        run: |
-          mkdir -p ~/.ssh
-          echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-  
-      - name: Add SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
-          chmod 600 ~/.ssh/ssh_key
-          chmod 700 ~/.ssh
-          eval $(ssh-agent -s)
-          ssh-add ~/.ssh/ssh_key
 
+      - name: Create SSH public key file
+        run: |
+          mkdir -p .ssh
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" > .ssh/ssh_key.pub
+          chmod 600 .ssh/ssh_key.pub
+          
       - name: Delete existing resource group
         run: |
           cd terraform
@@ -127,6 +119,10 @@ jobs:
       - name: Delete existing inventory file
         run: rm -f ansible/inventory.ini
 
+      - name: Create passwords.yml file
+        run: |
+          echo "${{ secrets.ANSIBLE_PASSWORDS_ENCRYPTED }}" > ansible/passwords.yml
+          
       - name: Download inventory file
         uses: actions/download-artifact@v4
         with:
