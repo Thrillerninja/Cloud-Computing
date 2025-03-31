@@ -28,3 +28,5 @@
 # Ignore Key files
 /terraform/keys
 /.ssh
+
+/temp

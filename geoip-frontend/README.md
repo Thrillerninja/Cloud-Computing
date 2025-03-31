@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GeoIP Frontend
 
-## Getting Started
+## Projektbeschreibung
+Die GeoIP-Frontend-Anwendung ermöglicht es Benutzern, IP-Adressen einzugeben und deren geografische Informationen wie Stadt, Land und Koordinaten abzurufen. Die Anwendung nutzt eine Kombination aus APIs und Datenbanken, um präzise Informationen bereitzustellen. Sie wurde mit [Next.js](https://nextjs.org) entwickelt und bietet eine interaktive Benutzeroberfläche.
 
-First, run the development server:
+## Features
+- Eingabe von IP-Adressen zur Standortbestimmung.
+- Anzeige von Standortinformationen wie Stadt, Land und Koordinaten.
+- Interaktive Karte mit Markierungen für die IP-Standorte.
+- Unterstützung für mehrere Sprachen und Themes (hell/dunkel).
+- Integration von MaxMind GeoIP API(SaaS) und PostgreSQL-Datenbank(PaaS).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Voraussetzungen
+- **Node.js**: Version 16 oder höher.
+- **npm**, **yarn**, **pnpm** oder **bun**: Für die Paketverwaltung.
+- **PostgreSQL**: Für die Speicherung von Standortdaten.
+- **Azure-Konto**: Für die Bereitstellung der Infrastruktur (optional).
+- **MaxMind API-Zugangsdaten**: Für die GeoIP-Abfragen.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Installation
+1. **Repository klonen**:
+   ```bash
+   git clone <repository-url>
+   cd geoip-frontend
+   ```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+2. **Abhängigkeiten installieren**:
+   ```bash
+   npm install
+   # oder
+   yarn install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Umgebungsvariablen konfigurieren**:
+   Erstellen Sie eine `.env`-Datei im Projektverzeichnis und fügen Sie die folgenden Variablen hinzu:
+   ```env
+   DB_USER=<Ihr-Datenbank-Benutzername>
+   DB_HOST=<Ihre-Datenbank-Host-Adresse>
+   DB_NAME=<Ihr-Datenbank-Name>
+   DB_PASSWORD=<Ihr-Datenbank-Passwort>
+   DB_PORT=<Ihr-Datenbank-Port>
+   MAXMIND_USER_ID=<Ihr-MaxMind-Benutzername>
+   MAXMIND_LICENSE_KEY=<Ihr-MaxMind-Lizenzschlüssel>
+   ```
 
-## Learn More
+4. **Datenbank einrichten**:
+   - Stellen Sie sicher, dass PostgreSQL läuft.
+   - Erstellen Sie die erforderlichen Tabellen und initialisieren Sie die Datenbank (SQL-Skripte sind im Projekt enthalten).
 
-To learn more about Next.js, take a look at the following resources:
+5. **Entwicklungsserver starten**:
+   ```bash
+   npm run dev
+   # oder
+   yarn dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+6. **Anwendung öffnen**:
+   Öffnen Sie [http://localhost:3000](http://localhost:3000) in Ihrem Browser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests
+- **Unit- und Integrationstests ausführen**:
+   ```bash
+   npm test
+   ```
