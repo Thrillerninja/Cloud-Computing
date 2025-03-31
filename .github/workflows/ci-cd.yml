@@ -74,6 +74,20 @@ jobs:
             value = "${{ secrets.DB_NAME }}"
           }
           EOF
+      
+      - name: Disable SSH host key checking
+        run: |
+          mkdir -p ~/.ssh
+          echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+  
+      - name: Add SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+          chmod 600 ~/.ssh/ssh_key
+          chmod 700 ~/.ssh
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/ssh_key
 
       - name: Delete existing resource group
         run: |
